@@ -1,0 +1,4 @@
+/Users/lorenzo/T2K-uniGe/ND280Software/FakeSFG/cmake-build-debug/CMakeFiles/FakeSFG.dir
+/Users/lorenzo/T2K-uniGe/ND280Software/FakeSFG/cmake-build-debug/CMakeFiles/MakeMatchingHits.dir
+/Users/lorenzo/T2K-uniGe/ND280Software/FakeSFG/cmake-build-debug/CMakeFiles/edit_cache.dir
+/Users/lorenzo/T2K-uniGe/ND280Software/FakeSFG/cmake-build-debug/CMakeFiles/rebuild_cache.dir
