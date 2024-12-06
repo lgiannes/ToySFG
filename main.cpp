@@ -18,9 +18,12 @@ int main(int argc, char const *argv[]) {
 
   FakeSFG fsfg(n_x, n_y, n_z);
 
-  fsfg.printCubes();
-  fsfg.printChannels();
+//  fsfg.printCubes();
+//  fsfg.printChannels();
   fsfg.setVerbose(0);
+
+  fsfg.setIntrinsicTimeResolution(0.1);
+  fsfg.setTimeStep(-1);
 
   fsfg.generateMatchingHitsTree(N);
   TTree* tree = fsfg.getMatchingHitsTree();

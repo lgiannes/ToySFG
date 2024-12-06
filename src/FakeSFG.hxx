@@ -9,6 +9,7 @@
 
 #include <TTree.h>
 #include <TFile.h>
+#include <TRandom3.h>
 
 #ifndef FAKESFG_FAKESFG_HXX
 #define FAKESFG_FAKESFG_HXX
@@ -19,9 +20,14 @@ private:
 
     double speed_of_light = 16; // cm/ns
     double cubeWidth = 1.027; // cm
+    double intrinsicTimeResolution = 0.; // ns
+    double timeStep = 2.5; // ns
+    bool isTimeDiscrete = false;
 
     //cubes
-    std::map<unsigned int, std::vector<int>> cubes; // map cube number and position
+    std::map<unsigned int, std::vector<int>> cubes; // map cube number and position(first: cube number, second: x,y,z)
+
+    TRandom3 rnd;
 
     enum projection {X,Y,Z};
 
@@ -66,6 +72,8 @@ public:
     void generateMatchingHitsTree(int nCubeHits);
     TTree* getMatchingHitsTree();
 
+    void setIntrinsicTimeResolution(double res);
+    void setTimeStep(double ts);
 
     void setVerbose(int v) {verbose = v;}
 

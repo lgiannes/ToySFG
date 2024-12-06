@@ -60,6 +60,13 @@ FakeSFG::FakeSFG(int n_x, int n_y, int n_z) {
     isTreeFilled = false;
     std::cout<<" done"<<std::endl;
 
+    // Set time resolution and discretization to default values
+    intrinsicTimeResolution = 0.;
+    timeStep = 2.5;
+    isTimeDiscrete = false;
+    // Initialize random generator
+    rnd = TRandom3(42);
+
 }
 
 void FakeSFG::printCubes() {
@@ -124,6 +131,7 @@ std::pair< unsigned int , std::vector<unsigned int> > FakeSFG::getRandomCube() {
 //    std::cout<<"cube: "<<random<<std::endl;
 //    std::cout<<"cube pos: "<<pos_cube[0]<<" "<<pos_cube[1]<<" "<<pos_cube[2]<<std::endl;
     std::vector<unsigned int> channels_reading;
+    // TODO: make a map when you construct the Toy SFGD, so that you don't have to repeat this loop at each simulated hit
     for (auto const& [key, val] : channels) {
         std::vector<int> pos_channel = val;
         if (channels_projection[key] == X && pos_channel[1] == pos_cube[1] && pos_channel[2] == pos_cube[2]) {
@@ -182,21 +190,29 @@ std::vector<FakeSFG::matchingHitsPair> FakeSFG::simulateTimeHit() {
 
   double times[3];
   double time_x = getDistance(cube, channels_reading[0]) * cubeWidth / speed_of_light;
-  times[0] = time_x;
+  times[0] = time_x + rnd.Gaus(0, intrinsicTimeResolution);
   double time_y = getDistance(cube, channels_reading[1]) * cubeWidth / speed_of_light;
-  times[1] = time_y;
+  times[1] = time_y + rnd.Gaus(0, intrinsicTimeResolution);
   double time_z = getDistance(cube, channels_reading[2]) * cubeWidth / speed_of_light;
-  times[2] = time_z;
+  times[2] = time_z + rnd.Gaus(0, intrinsicTimeResolution);
+
+  if(isTimeDiscrete){
+    for(int i=0;i<3;i++){
+      times[i] = round(times[i]/timeStep)*timeStep;
+    }
+  }
 
   std::vector<matchingHitsPair> ThreeHitPairs;
   for(int i = 0; i < 3; i++) {
     matchingHitsPair pair;
     pair.channel1 = channels_reading[i];
     pair.time1 = times[i];
-    pair.distance1 = getDistance(cube, channels_reading[i]);
+    pair.distance1 = getDistance(cube, channels_reading[i])*cubeWidth;
     pair.channel2 = channels_reading[(i + 1) % 3];
     pair.time2 = times[(i + 1) % 3];
-    pair.distance2 = getDistance(cube, channels_reading[(i + 1) % 3]);
+    pair.distance2 = getDistance(cube, channels_reading[(i + 1) % 3])*cubeWidth;
+    pair.projection1 = channels_projection[channels_reading[i]];
+    pair.projection2 = channels_projection[channels_reading[(i + 1) % 3]];
     ThreeHitPairs.push_back(pair);
   }
 
@@ -235,15 +251,30 @@ void FakeSFG::generateMatchingHitsTree(int nCubeHits) {
     return;
   }
 
+  std::cout<<" Generating matching hits pairs for "<<nCubeHits<<" cube hits..."<<std::endl;
+  int progress = 0;
   for(int i = 0; i < nCubeHits; i++) {
+    // Progress bar that prints a | every % of the total hits
+      if(i % (nCubeHits/100) == 0) {
+        progress++;
+        std::string bar = std::string(progress, '|');
+        std::cout << "\r" << bar << " " <<progress<<" %" <<std::flush;
+      }
     std::vector<matchingHitsPair> hits = simulateTimeHit();
     for (auto const &hit: hits) {
       thisMatchingHitsPair = hit;
+      if(verbose>0){
+        std::cout<<"time1: "<<thisMatchingHitsPair.time1<<" "<<"time2: "<<thisMatchingHitsPair.time2<<std::endl;
+        std::cout<<"distance1: "<<thisMatchingHitsPair.distance1<<" "<<"distance2: "<<thisMatchingHitsPair.distance2<<std::endl;
+        std::cout<<"channel1: "<<thisMatchingHitsPair.channel1<<" "<<"channel2: "<<thisMatchingHitsPair.channel2<<std::endl;
+        std::cout<<"projection1: "<<thisMatchingHitsPair.projection1<<" "<<"projection2: "<<thisMatchingHitsPair.projection2<<std::endl;
+      }
       matchingHitsTree->Fill();
     }
   }
+  std::cout << "\rDONE!" << std::endl;
 
-  std::cout << "Simulated " << nCubeHits << " cube hits.\n";
+  std::cout << "\nSimulated " << nCubeHits << " cube hits.\n";
   std::cout << "Output TTree entries: " << matchingHitsTree->GetEntries() << std::endl;
   matchingHitsTree->Print();
 
@@ -259,5 +290,19 @@ TTree* FakeSFG::getMatchingHitsTree() {
   } else {
     std::cerr<<"Error: Tree is empty. Returning a nullptr"<<std::endl;
     return nullptr;
+  }
+}
+
+void FakeSFG::setIntrinsicTimeResolution(double res) {
+  intrinsicTimeResolution = res;
+}
+
+void FakeSFG::setTimeStep(double ts) {
+  if(ts<=0){
+    timeStep = 0;
+    isTimeDiscrete = false;
+  }else{
+    isTimeDiscrete = true;
+    timeStep = ts;
   }
 }
