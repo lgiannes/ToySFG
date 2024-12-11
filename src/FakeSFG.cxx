@@ -5,7 +5,7 @@
 #include "FakeSFG.hxx"
 
 
-FakeSFG::FakeSFG(int n_x, int n_y, int n_z) {
+FakeSFG::FakeSFG(int n_x, int n_y, int n_z, std::string offset_type, double timeReso, double timeStep) : n_x(n_x), n_y(n_y), n_z(n_z), intrinsicTimeResolution(timeReso), timeStep(timeStep){
 
     if(n_x < 1 || n_y < 1 || n_z < 1){
         std::cerr<<"Error: n_x, n_y and n_z must be greater than 0"<<std::endl;
@@ -22,6 +22,7 @@ FakeSFG::FakeSFG(int n_x, int n_y, int n_z) {
         }
     }
     std::cout<< cubes.size() <<" cubes initialized  --  Cross check: "<<n_x*n_y*n_z<<" == "<<cubes.size()<<std::endl;
+    nCubes = cubes.size();
     //initialize channels
     int index = 0;
     // Face XY (fibers along z)
@@ -54,19 +55,56 @@ FakeSFG::FakeSFG(int n_x, int n_y, int n_z) {
 
     setVerbose(0); // by default verbose is off
     std::cout<< channels.size() <<" channels initialized  --  Cross check: "<<n_x*n_y + n_y*n_z + n_z*n_x<<" == "<<channels.size()<<std::endl;
+    nChannels = channels.size();
 
     std::cout<<"Initializing tree...";
     initializeTree();
     isTreeFilled = false;
     std::cout<<" done"<<std::endl;
 
-    // Set time resolution and discretization to default values
-    intrinsicTimeResolution = 0.;
-    timeStep = 2.5;
-    isTimeDiscrete = false;
+    if(timeStep < 0){
+      isTimeDiscrete = false;
+    }else{
+      isTimeDiscrete = true;
+    }
     // Initialize random generator
     rnd = TRandom3(42);
+    // Initialize time offsets
+    setTimeOffsets(offset_type);
+    // Generate map cube to channels
+    generateMapCubeToChannels();
 
+    std::cout<<"-------------------------------------\nToy SFGD initialized"<<std::endl;
+    std::cout<<"n_x: "<<n_x<<" n_y: "<<n_y<<" n_z: "<<n_z<<std::endl;
+    std::cout<<"Time resolution: "<<intrinsicTimeResolution<<" ns"<<std::endl;
+    if(isTimeDiscrete){
+      std::cout<<"Time is discretized with time step: "<<timeStep<<" ns"<<std::endl;
+    }else{
+      std::cout<<"Time is not discretized."<<std::endl;
+    }
+    std::cout<<"Time offsets initialized with "<<offset_type<<" method"<<std::endl;
+    std::cout<<"-------------------------------------\n";
+    // Initialize config tree
+    initializeConfigTree();
+
+
+}
+
+void FakeSFG::initializeConfigTree() {
+  configTree = new TTree("configTree", "Tree containing the configuration of the Toy SFGD");
+  configTree->Branch("n_x", &n_x, "n_x/I");
+  configTree->Branch("n_y", &n_y, "n_y/I");
+  configTree->Branch("n_z", &n_z, "n_z/I");
+  configTree->Branch("nChannels", &nChannels, "nChannels/I");
+  configTree->Branch("nCubes", &nCubes, "nCubes/I");
+  configTree->Branch("timeResolution", &intrinsicTimeResolution, "timeResolution/D");
+  configTree->Branch("timeStep", &timeStep, "timeStep/D");
+  if (!writableTimeOffsets){
+    std::cerr<<"Error: Time offsets not initialized"<<std::endl;
+    throw std::runtime_error("Time offsets not initialized! Cannot save config tree");
+  }
+  configTree->Branch("timeOffsets", &writableTimeOffsets);
+  configTree->Fill();
 }
 
 void FakeSFG::printCubes() {
@@ -91,6 +129,29 @@ void FakeSFG::initializeTree() {
     matchingHitsTree->Branch("channelId2", &thisMatchingHitsPair.channel2, "channelId2/i");
     matchingHitsTree->Branch("projection1", &thisMatchingHitsPair.projection1, "projection1/I");
     matchingHitsTree->Branch("projection2", &thisMatchingHitsPair.projection2, "projection2/I");
+}
+
+void FakeSFG::resetTree() {
+    matchingHitsTree->Reset();
+    isTreeFilled = false;
+}
+
+void FakeSFG::setTimeOffsets(std::string offset_type) {
+  if(offset_type == "random") {
+    setRandomTimeOffsets(1);
+  } else if(offset_type == "gaussian") {
+    setGaussianTimeOffsets(1);
+  } else if(offset_type == "sawtooth") {
+    setSawToothTimeOffsets(1);
+  } else if(offset_type == "alternating") {
+    setAlternatingTimeOffsets(1, 1);
+  } else {
+    std::cerr<<"Error: Time offset type not recognized. Choose between random, gaussian, sawtooth, alternating"<<std::endl;
+  }
+  writableTimeOffsets = new std::vector<double>;
+  for(auto const& [key, val]: time_offsets){
+    writableTimeOffsets->push_back(val);
+  }
 }
 
 void FakeSFG::printChannels() {
@@ -131,35 +192,48 @@ std::pair< unsigned int , std::vector<unsigned int> > FakeSFG::getRandomCube() {
 //    std::cout<<"cube: "<<random<<std::endl;
 //    std::cout<<"cube pos: "<<pos_cube[0]<<" "<<pos_cube[1]<<" "<<pos_cube[2]<<std::endl;
     std::vector<unsigned int> channels_reading;
-    // TODO: make a map when you construct the Toy SFGD, so that you don't have to repeat this loop at each simulated hit
-    for (auto const& [key, val] : channels) {
-        std::vector<int> pos_channel = val;
-        if (channels_projection[key] == X && pos_channel[1] == pos_cube[1] && pos_channel[2] == pos_cube[2]) {
-            channels_reading.push_back(key);
-//            std::cout<<"debug: X:"<<key<<std::endl;
-//            std::cout<<pos_channel[1]<<" "<<pos_cube[1]<<" - "<<pos_channel[2]<<" "<<pos_cube[2]<<std::endl;
-        }
-        if (channels_projection[key] == Y && pos_channel[2] == pos_cube[2] && pos_channel[0] == pos_cube[0]) {
-            channels_reading.push_back(key);
-//            std::cout<<"debug: Y:"<<key<<std::endl;
-//            std::cout<<pos_channel[2]<<" "<<pos_cube[2]<<" - "<<pos_channel[0]<<" "<<pos_cube[0]<<std::endl;
-        }
-        if (channels_projection[key] == Z && pos_channel[1] == pos_cube[1] && pos_channel[0] == pos_cube[0]) {
-            channels_reading.push_back(key);
-//            std::cout<<"debug: Z:"<<key<<std::endl;
-//            std::cout<<pos_channel[1]<<" "<<pos_cube[1]<<" - "<<pos_channel[0]<<" "<<pos_cube[0]<<std::endl;
-        }
-    }
-    if(channels_reading.size() != 3){
-        std::cerr<<"ERROR: Cube "<<random<<" is not read by 3 channels"<<std::endl;
-    }
 
-    std::pair< unsigned int , std::vector<unsigned int> > result = std::make_pair(random, channels_reading);
+    channels_reading = mapCubeToChannels[random];
+
+    std::pair< unsigned int , std::vector<unsigned int> > result = std::make_pair(random, channels_reading); // cube number, channels reading the cube
 
 
     return result;
 
 }
+
+
+void FakeSFG::generateMapCubeToChannels() {
+  std::cout<<"Generating map cube to channels..."<<std::endl;
+  // Progress bar
+  int progress = 0;
+  for (auto const& [key, val] : cubes) {
+      if(progress % (nCubes/100) == 0) {
+        std::string bar = std::string(progress/(nCubes/100), '|');
+        std::cout << "\r" << bar << " " <<progress/(nCubes/100)<<" %" <<std::flush;
+      }
+      progress++;
+      std::vector<unsigned int> channels_reading;
+      for (auto const& [key2, val2] : channels) {
+          std::vector<int> pos_channel = val2;
+          if (channels_projection[key2] == X && pos_channel[1] == val[1] && pos_channel[2] == val[2]) {
+              channels_reading.push_back(key2);
+          }
+          if (channels_projection[key2] == Y && pos_channel[2] == val[2] && pos_channel[0] == val[0]) {
+              channels_reading.push_back(key2);
+          }
+          if (channels_projection[key2] == Z && pos_channel[1] == val[1] && pos_channel[0] == val[0]) {
+              channels_reading.push_back(key2);
+          }
+      }
+      if(channels_reading.size() != 3){
+          std::cerr<<"ERROR: Cube "<<key<<" is not read by 3 channels"<<std::endl;
+      }
+      mapCubeToChannels[key] = channels_reading;
+  }
+  std::cout<<"Map cube to channels generated"<<std::endl;
+}
+
 
 int FakeSFG::getDistance(unsigned int cube, unsigned int channel) {
     std::vector<int> pos_cube = cubes[cube];
@@ -190,11 +264,11 @@ std::vector<FakeSFG::matchingHitsPair> FakeSFG::simulateTimeHit() {
 
   double times[3];
   double time_x = getDistance(cube, channels_reading[0]) * cubeWidth / speed_of_light;
-  times[0] = time_x + rnd.Gaus(0, intrinsicTimeResolution);
+  times[0] = time_x + rnd.Gaus(0, intrinsicTimeResolution) + time_offsets[channels_reading[0]];
   double time_y = getDistance(cube, channels_reading[1]) * cubeWidth / speed_of_light;
-  times[1] = time_y + rnd.Gaus(0, intrinsicTimeResolution);
+  times[1] = time_y + rnd.Gaus(0, intrinsicTimeResolution) + time_offsets[channels_reading[1]];
   double time_z = getDistance(cube, channels_reading[2]) * cubeWidth / speed_of_light;
-  times[2] = time_z + rnd.Gaus(0, intrinsicTimeResolution);
+  times[2] = time_z + rnd.Gaus(0, intrinsicTimeResolution) + time_offsets[channels_reading[2]];
 
   if(isTimeDiscrete){
     for(int i=0;i<3;i++){
@@ -304,5 +378,62 @@ void FakeSFG::setTimeStep(double ts) {
   }else{
     isTimeDiscrete = true;
     timeStep = ts;
+  }
+}
+
+void FakeSFG::setRandomTimeOffsets(double pitch) {
+  for (auto const &[key, val]: channels) {
+    if(time_offsets.find(key) == time_offsets.end() || time_offsets[key] == 0 ) {
+      time_offsets[key] = rnd.Uniform(-pitch,pitch);
+    }else{
+      std::cerr<<"Error: Time offset for channel "<<key<<" already set."<<std::endl;
+      return;
+    }
+  }
+}
+
+void FakeSFG::setGaussianTimeOffsets(double sigma) {
+  for (auto const &[key, val]: channels) {
+    if(time_offsets.find(key) == time_offsets.end() || time_offsets[key] == 0 ) {
+      time_offsets[key] = rnd.Gaus(0, sigma);
+    }else{
+      std::cerr<<"Error: Time offset for channel "<<key<<" already set."<<std::endl;
+      return;
+    }
+  }
+}
+
+void FakeSFG::setSawToothTimeOffsets(double pitch) {
+  int i= 0;
+  for (auto const &[key, val]: channels) {
+    if(time_offsets.find(key) == time_offsets.end() || time_offsets[key] == 0 ) {
+      time_offsets[key] = (i%10)*pitch;
+      i++;
+    }else{
+      std::cerr<<"Error: Time offset for channel "<<key<<" already set."<<std::endl;
+      return;
+    }
+  }
+}
+
+void FakeSFG::setAlternatingTimeOffsets(double distance, double sigma) {
+  for (auto const &[key, val]: channels) {
+    if(time_offsets.find(key) == time_offsets.end() || time_offsets[key] == 0 ) {
+      double plusMinus = rnd.Uniform(-1,1);
+      if(plusMinus > 0) {
+        time_offsets[key] = distance + rnd.Gaus(0, sigma);
+      }else {
+        time_offsets[key] = -distance + rnd.Gaus(0, sigma);
+      }
+    }else{
+      std::cerr<<"Error: Time offset for channel "<<key<<" already set."<<std::endl;
+      return;
+    }
+  }
+}
+
+void FakeSFG::resetTimeOffsets() {
+  for (auto const &[key, val]: channels) {
+    time_offsets[key] = 0;
   }
 }
