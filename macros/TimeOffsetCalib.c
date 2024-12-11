@@ -1,6 +1,10 @@
 
 
-void TimeOffsetCalib(std::string filename = "../output/test_Reso1000_10K.root") {
+double TimeOffsetCalib(std::string filename = "../output/test_2ch.root", bool saveImage = true, bool batchMode = false) {
+  if (batchMode) {
+    gROOT->SetBatch(kTRUE);
+  }
+
   TFile * file = new
   TFile(filename.c_str(), "READ");
   TTree *tree = (TTree *) file->Get("matchingHitsTree");
@@ -150,8 +154,8 @@ void TimeOffsetCalib(std::string filename = "../output/test_Reso1000_10K.root") 
   h_offset_difference->Fit("gaus","Q");
   double sigma_offset = h_offset_difference->GetFunction("gaus")->GetParameter(2);
   ofstream ofs;
-  ofs.open("Reso_hits_sigmaOffsets.txt", std::ofstream::out | std::ofstream::app);
-  ofs << timeResolution << " " << nEntries << " " << sigma_offset << endl;
+//  ofs.open("Reso_hits_sigmaOffsets.txt", std::ofstream::out | std::ofstream::app);
+//  ofs << timeResolution << " " << nEntries << " " << sigma_offset << endl;
   c_offDiff->cd(2);
   h_deltaAfterCalib->SetLineColor(kBlue);
   h_deltaAfterCalib->Draw();
@@ -174,7 +178,12 @@ void TimeOffsetCalib(std::string filename = "../output/test_Reso1000_10K.root") 
   h_deltaAfterCalib->SetTitle(reducedFilename.c_str());
   h_deltaBeforeCalib->SetTitle(reducedFilename.c_str());
 
-  c_offDiff->SaveAs(Form("TimeOffsetCalib_%s.png", reducedFilename.c_str()));
+  if (saveImage)
+    c_offDiff->SaveAs(Form("TimeOffsetCalib_%s.png", reducedFilename.c_str()));
 
+  if (batchMode) {
+    gROOT->SetBatch(kFALSE);
+  }
+  return sigma_offset;
 
 }

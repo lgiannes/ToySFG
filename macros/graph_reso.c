@@ -18,6 +18,10 @@ void graph_reso(string inputfile="Reso_hits_sigmaOffsets.txt"){
   }
 
 
+  TF1* sqrtfunction = new TF1("sqrtfunction", "[1]+[0]/x", 30000, 300000);
+  sqrtfunction->SetParameters(1, 1);
+
+
   TMultiGraph* mg = new TMultiGraph();
   TLegend* leg = new TLegend(0.1,0.7,0.48,0.9);
   int i=0;
@@ -27,6 +31,7 @@ void graph_reso(string inputfile="Reso_hits_sigmaOffsets.txt"){
     graph.second->SetMarkerColor(i+1);
     graph.second->SetLineColor(i+1);
     i++;
+    graph.second->Fit(sqrtfunction);
     mg->Add(graph.second);
     leg->AddEntry(graph.second, Form("#sigma_{offset} = %.2f ns", graph.first), "l");
     graph.second->Draw("APL");
