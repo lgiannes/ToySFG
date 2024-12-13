@@ -1,6 +1,6 @@
 
 
-double TimeOffsetCalib(std::string filename = "../output/test_2ch.root", bool saveImage = true, bool batchMode = false) {
+double TimeOffsetCalib(std::string filename = "../output/test_Reso0_100K.root", bool saveImage = true, bool batchMode = false, int maxEntries = -1) {
   if (batchMode) {
     gROOT->SetBatch(kTRUE);
   }
@@ -33,6 +33,10 @@ double TimeOffsetCalib(std::string filename = "../output/test_2ch.root", bool sa
 
   int nEntries = tree->GetEntries();
 
+  if (maxEntries > 0 && nEntries > maxEntries) {
+    nEntries = maxEntries;
+  }
+
   double v = 16; // cm/ns
   // distance is in cm, time is in ns
 
@@ -52,7 +56,7 @@ double TimeOffsetCalib(std::string filename = "../output/test_2ch.root", bool sa
   map<int, double> inputTimeOffsets;
   for (int i = 0; i < writableTimeOffsets->size(); i++) {
     inputTimeOffsets[i] = writableTimeOffsets->at(i);
-//    cout << "Channel " << i << ": " << inputTimeOffsets[i] << endl;
+    cout << "Channel " << i << ": " << inputTimeOffsets[i] << endl;
   }
   int nChannels = inputTimeOffsets.size();
 
@@ -66,10 +70,13 @@ double TimeOffsetCalib(std::string filename = "../output/test_2ch.root", bool sa
   std::map<unsigned int, double> lookUpTable; // final lookup table
   std::map<unsigned int, double> single_ch_offsetError; // error of each channel
 
-  int maxIteration = 6;
+  int maxIteration = 50;
   int iter = 0;
   double alpha = 0.5;
   int usedChannels = 0;
+
+  int testchannel = 0;
+  TGraph* g_computed_offset_testchannel = new TGraph();
 
   cout<<"Start time offset calibration"<<endl;
   cout<<"Matching hits in dataset: "<<nEntries<<endl;
@@ -102,12 +109,24 @@ double TimeOffsetCalib(std::string filename = "../output/test_2ch.root", bool sa
       ch_offsetError[entry.first] = sqrt( ch_squaredDelta[entry.first]/ch_entries[entry.first] - entry.second*entry.second); // std dev
       //std::cout << "Nentries is: " << ch_entries[entry.first] << std::endl;
     }
+    // Shift all the offsets to have average = 0
+    double sum = 0;
+    for (auto& entry : ch_offset) {
+      sum += entry.second;
+    }
+    double average = sum/usedChannels;
+    for (auto& entry : ch_offset) {
+      entry.second -= average;
+    }
 
     // Fill lookup table
     for (auto& entry : ch_offset) {
 //      std::cout << "Entries of channel " << entry.first << " is: " << ch_entries[entry.first] << std::endl;
       lookUpTable[entry.first] += entry.second;
     }
+
+
+    g_computed_offset_testchannel->SetPoint(iter, iter, lookUpTable[testchannel]);
 
     // Clear the map before the next iteration
     if (iter != maxIteration-1){
@@ -130,15 +149,15 @@ double TimeOffsetCalib(std::string filename = "../output/test_2ch.root", bool sa
     cout<<endl;
   }
 
-  TH1F* h_offset_difference = new TH1F("h_offset_difference", "Difference between input and output offsets", 100, -3, 3);
+  TH1F* h_offset_difference = new TH1F("h_offset_difference", "Difference between input and output offsets", 100, -1, 1);
   // Print out lookup table and compare to the input
   for(int channel = 0; channel < nChannels; channel++){
 //    cout<<"Channel "<<channel<<": "<<lookUpTable[channel]<<" input: "<<inputTimeOffsets[channel]<<""<<endl;
     h_offset_difference->Fill(lookUpTable[channel] - inputTimeOffsets[channel]);
   }
 
-  TH1D* h_deltaBeforeCalib = new TH1D("h_deltaBeforeCalib", "Delta before calibration", 120, -4, 4);
-  TH1D* h_deltaAfterCalib = new TH1D("h_deltaAfterCalib", "Delta after calibration", 120, -4, 4);
+  TH1D* h_deltaBeforeCalib = new TH1D("h_deltaBeforeCalib", "Delta before calibration", 420, -4, 4);
+  TH1D* h_deltaAfterCalib = new TH1D("h_deltaAfterCalib", "Delta after calibration", 420, -4, 4);
   for (int hit_i = 0; hit_i<nEntries; hit_i++) {
     tree->GetEntry(hit_i);
     double delta = time1 - time2 - (distance1 - distance2) / v;
@@ -152,7 +171,9 @@ double TimeOffsetCalib(std::string filename = "../output/test_2ch.root", bool sa
   c_offDiff->cd(1);
   h_offset_difference->Draw();
   h_offset_difference->Fit("gaus","Q");
-  double sigma_offset = h_offset_difference->GetFunction("gaus")->GetParameter(2);
+//  double sigma_offset = h_offset_difference->GetFunction("gaus")->GetParameter(2);
+  double sigma_offset = h_offset_difference->GetRMS();
+  cout << "Mean of Offset_{measured} - Offset_{set} = " <<1000*h_offset_difference->GetMean() << " ps." << endl;
   ofstream ofs;
 //  ofs.open("Reso_hits_sigmaOffsets.txt", std::ofstream::out | std::ofstream::app);
 //  ofs << timeResolution << " " << nEntries << " " << sigma_offset << endl;
@@ -180,6 +201,23 @@ double TimeOffsetCalib(std::string filename = "../output/test_2ch.root", bool sa
 
   if (saveImage)
     c_offDiff->SaveAs(Form("TimeOffsetCalib_%s.png", reducedFilename.c_str()));
+
+  TCanvas* c_offset = new TCanvas("c_offset", "c_offset", 800, 600);
+  g_computed_offset_testchannel->SetMarkerStyle(20);
+  g_computed_offset_testchannel->SetMarkerSize(0.5);
+  g_computed_offset_testchannel->SetMarkerColor(1);
+  g_computed_offset_testchannel->SetLineColor(1);
+  g_computed_offset_testchannel->SetTitle(Form("Offset of channel %d;Iteration;Offset [ns]", testchannel));
+  g_computed_offset_testchannel->Draw("APL");
+  TLine* line = new TLine(0, inputTimeOffsets[testchannel], maxIteration+1, inputTimeOffsets[testchannel]);
+  line->SetLineColor(kRed);
+  line->Draw();
+  // Print difference between input and output (last iteration)
+  double diff = lookUpTable[testchannel] - inputTimeOffsets[testchannel];
+  TLatex latex2;
+  latex2.SetTextSize(0.03);
+  latex2.SetNDC();
+  latex2.DrawLatex(0.2, 0.91, Form("Difference between input and output: %.1f ps", 1000*diff));
 
   if (batchMode) {
     gROOT->SetBatch(kFALSE);
