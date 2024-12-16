@@ -18,7 +18,7 @@ int main(int argc, char const *argv[]) {
     return 1;
   }
 
-  std::string offset_type = "alternating";
+  std::string offset_type = "random";
   FakeSFG fsfg(n_x, n_y, n_z, offset_type,timeResolution,-1);
 
 //  fsfg.printCubes();

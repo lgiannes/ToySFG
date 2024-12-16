@@ -148,6 +148,17 @@ void FakeSFG::setTimeOffsets(std::string offset_type) {
   } else {
     std::cerr<<"Error: Time offset type not recognized. Choose between random, gaussian, sawtooth, alternating"<<std::endl;
   }
+
+  // Push back the average to zero (we impose that the average of the offsets is 0)
+  double average = 0;
+  for(auto const& [key, val]: time_offsets){
+    average += val;
+  }
+  average /= time_offsets.size();
+  for(auto& [key, val]: time_offsets){
+    val -= average;
+  }
+
   writableTimeOffsets = new std::vector<double>;
   for(auto const& [key, val]: time_offsets){
     writableTimeOffsets->push_back(val);
@@ -204,7 +215,7 @@ std::pair< unsigned int , std::vector<unsigned int> > FakeSFG::getRandomCube() {
 
 
 void FakeSFG::generateMapCubeToChannels() {
-  std::cout<<"Generating map cube to channels..."<<std::endl;
+  std::cout<<"Toy Super-FGD is being built..."<<std::endl;
   // Progress bar
   int progress = 0;
   for (auto const& [key, val] : cubes) {
