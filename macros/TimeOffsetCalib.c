@@ -70,17 +70,24 @@ double TimeOffsetCalib(std::string filename = "../output/test_Reso0_100K.root", 
   std::map<unsigned int, double> lookUpTable; // final lookup table
   std::map<unsigned int, double> single_ch_offsetError; // error of each channel
 
-  int maxIteration = 50;
+  int maxIteration = 20;
   int iter = 0;
   double alpha = 0.5;
   int usedChannels = 0;
 
   int testchannel = 0;
   TGraph* g_computed_offset_testchannel = new TGraph();
+  TH1F* h_offset_correction_ratio_last = new TH1F("h_offset_correction_ratio_last", "Offset correction ratio last iteration", 100, 0., 1);
+  vector<double> offset_correction_ratio_secondlast;
+
 
   cout<<"Start time offset calibration"<<endl;
   cout<<"Matching hits in dataset: "<<nEntries<<endl;
   cout<<"Toy SFG channels: "<<nChannels<<endl;
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // BEGINNING OF ITERATION LOOP
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   while (iter < maxIteration){
     for (int hit_i = 0; hit_i<nEntries; hit_i++){
@@ -123,6 +130,12 @@ double TimeOffsetCalib(std::string filename = "../output/test_Reso0_100K.root", 
     for (auto& entry : ch_offset) {
 //      std::cout << "Entries of channel " << entry.first << " is: " << ch_entries[entry.first] << std::endl;
       lookUpTable[entry.first] += entry.second;
+      if (iter == maxIteration-2){
+        offset_correction_ratio_secondlast.push_back(entry.second);
+      }
+      if (iter == maxIteration-1){
+        h_offset_correction_ratio_last->Fill(entry.second/offset_correction_ratio_secondlast[entry.first]);
+      }
     }
 
 
@@ -138,6 +151,11 @@ double TimeOffsetCalib(std::string filename = "../output/test_Reso0_100K.root", 
     iter++;
   } // end of iteration loop
 
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // END OF ITERATION LOOP
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
   if (usedChannels < nChannels){
     int notCalibrated = nChannels - usedChannels;
     cout<<"Not calibrated channels: "<<notCalibrated<<endl;
@@ -149,11 +167,22 @@ double TimeOffsetCalib(std::string filename = "../output/test_Reso0_100K.root", 
     cout<<endl;
   }
 
-  TH1F* h_offset_difference = new TH1F("h_offset_difference", "Difference between input and output offsets", 100, -1, 1);
+  TH1F* h_offset_difference = new TH1F("h_offset_difference", "Difference between input and output offsets", 50, -1, 1);
+  TH1F* h_inputOffsets = new TH1F("h_inputOffsets", "Input offsets", 50, -3, 3);
+  TH1F* h_outputOffsets = new TH1F("h_outputOffsets", "Output offsets", 50, -3, 3);
+  TGraph* g_inputOffsets = new TGraph();
+  TGraph* g_outputOffsets = new TGraph();
+  TGraph* g_residuals = new TGraph();
+
   // Print out lookup table and compare to the input
   for(int channel = 0; channel < nChannels; channel++){
 //    cout<<"Channel "<<channel<<": "<<lookUpTable[channel]<<" input: "<<inputTimeOffsets[channel]<<""<<endl;
     h_offset_difference->Fill(lookUpTable[channel] - inputTimeOffsets[channel]);
+    h_inputOffsets->Fill(inputTimeOffsets[channel]);
+    h_outputOffsets->Fill(lookUpTable[channel]);
+    g_inputOffsets->SetPoint(g_inputOffsets->GetN(), channel, inputTimeOffsets[channel]);
+    g_outputOffsets->SetPoint(g_outputOffsets->GetN(), channel, lookUpTable[channel]);
+    g_residuals->SetPoint(g_residuals->GetN(), ch_entries[channel], 1000*(lookUpTable[channel] - inputTimeOffsets[channel]) );
   }
 
   TH1D* h_deltaBeforeCalib = new TH1D("h_deltaBeforeCalib", "Delta before calibration", 420, -4, 4);
@@ -202,7 +231,9 @@ double TimeOffsetCalib(std::string filename = "../output/test_Reso0_100K.root", 
   if (saveImage)
     c_offDiff->SaveAs(Form("TimeOffsetCalib_%s.png", reducedFilename.c_str()));
 
-  TCanvas* c_offset = new TCanvas("c_offset", "c_offset", 800, 600);
+  TCanvas* c_offset = new TCanvas("c_offset", "c_offset", 1600, 600);
+  c_offset->Divide(2,1);
+  c_offset->cd(1);
   g_computed_offset_testchannel->SetMarkerStyle(20);
   g_computed_offset_testchannel->SetMarkerSize(0.5);
   g_computed_offset_testchannel->SetMarkerColor(1);
@@ -218,6 +249,65 @@ double TimeOffsetCalib(std::string filename = "../output/test_Reso0_100K.root", 
   latex2.SetTextSize(0.03);
   latex2.SetNDC();
   latex2.DrawLatex(0.2, 0.91, Form("Difference between input and output: %.1f ps", 1000*diff));
+  c_offset->cd(2);
+  TGraph* g_offset_correction = new TGraph();
+  for (int i = 1; i < g_computed_offset_testchannel->GetN(); i++) {
+    g_offset_correction->SetPoint(g_offset_correction->GetN(), i, abs(g_computed_offset_testchannel->GetY()[i] - g_computed_offset_testchannel->GetY()[i-1]));
+  }
+  g_offset_correction->SetMarkerStyle(20);
+  g_offset_correction->SetMarkerSize(0.5);
+  g_offset_correction->SetMarkerColor(1);
+  g_offset_correction->SetLineColor(1);
+  g_offset_correction->SetTitle("Offset correction;iteration;Offset correction [ns]");
+  g_offset_correction->Draw("APL");
+  TF1* series = new TF1("series", "1/(x^2)", 1, maxIteration);
+  series->SetLineColor(kRed);
+  series->Draw("same");
+  TGraph* g_offset_correction_ratio = new TGraph();
+  for(int i = 1; i < g_offset_correction->GetN(); i++) {
+    g_offset_correction_ratio->SetPoint(g_offset_correction_ratio->GetN(), i, g_offset_correction->GetY()[i]/g_offset_correction->GetY()[i-1]);
+  }
+  g_offset_correction_ratio->SetMarkerStyle(20);
+  g_offset_correction_ratio->SetMarkerSize(0.5);
+  g_offset_correction_ratio->SetMarkerColor(1);
+  g_offset_correction_ratio->SetLineColor(1);
+  g_offset_correction_ratio->SetTitle("Offset correction ratio;iteration;Offset correction ratio");
+  g_offset_correction_ratio->Draw("APL");
+
+  TCanvas* c_offsetHist = new TCanvas("c_offsetHist", "c_offsetHist", 1800, 500);
+  c_offsetHist->Divide(2,1);
+  c_offsetHist->cd(1);
+  h_inputOffsets->SetLineColor(kRed);
+  h_inputOffsets->SetLineStyle(2);
+  h_inputOffsets->SetLineWidth(4);
+  h_outputOffsets->SetLineColor(kBlue);
+  h_inputOffsets->Draw();
+  h_outputOffsets->Draw("same");
+  TLegend *inputputputleg = new TLegend(0.1,0.7,0.48,0.9);
+  inputputputleg->AddEntry(h_inputOffsets, "Input offsets", "l");
+  inputputputleg->AddEntry(h_outputOffsets, "Output offsets", "l");
+  inputputputleg->Draw();
+  c_offsetHist->cd(2);
+  g_inputOffsets->SetMarkerStyle(20);
+  g_inputOffsets->SetMarkerSize(0.5);
+  g_inputOffsets->SetMarkerColor(kRed);
+  g_inputOffsets->SetLineColor(kRed);
+  g_outputOffsets->SetMarkerStyle(20);
+  g_outputOffsets->SetMarkerSize(0.5);
+  g_outputOffsets->SetMarkerColor(kBlue);
+  g_outputOffsets->SetLineColor(kBlue);
+  g_inputOffsets->SetTitle("Input vs. output offsets;Hits in channel;Offset [ns]");
+//  g_inputOffsets->Draw("APl");
+//  g_outputOffsets->Draw("Pl");
+  g_residuals->SetMarkerStyle(20);
+  g_residuals->SetMarkerSize(0.5);
+  g_residuals->SetMarkerColor(kBlack);
+  g_residuals->SetTitle("Residuals;Channel;Offset_{output} - Offset_{input} [ps]");
+  g_residuals->Draw("APL");
+
+  TCanvas* c_offsetCorrection = new TCanvas("c_offsetCorrection", "c_offsetCorrection", 1800, 600);
+  h_offset_correction_ratio_last->Draw();
+
 
   if (batchMode) {
     gROOT->SetBatch(kFALSE);
