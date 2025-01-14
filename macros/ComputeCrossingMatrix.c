@@ -143,9 +143,11 @@ double ComputeCrossingMatrix(std::string filename = "../output/test_3x2x2.root")
       M_i_squared += M[i][j]*M[i][j];
     }
     Ratio += M_i_squared;
-    cout<<Form("||M_%d||= ",i)<<sqrt(M_i_squared)<<endl;
+    cout<<Form("||M_%d||= ",i)<<sqrt(M_i_squared)<<"  - squared sum of the elements in row vector that make up the M matrix."<<endl;
   }
 //  TM.Print();
+
+
 
   Ratio = sqrt(Ratio);
   double det = TM.Determinant();
