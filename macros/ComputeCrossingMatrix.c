@@ -153,7 +153,7 @@ double ComputeCrossingMatrix(std::string filename = "../output/test_3x2x2.root")
   double det = TM.Determinant();
   cout<<std::scientific<<"Determinant: "<<det<<endl;
 
-  cout<<"Ratio: "<<Ratio<<endl;
+  cout<<"Ratio: "<<Ratio<<"  this is not really the ratio though."<<endl;
 
 
 
