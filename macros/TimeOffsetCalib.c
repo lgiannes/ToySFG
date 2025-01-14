@@ -69,14 +69,24 @@ double TimeOffsetCalib(std::string filename = "../output/test_Reso0_100K.root", 
   std::map<unsigned int, double> ch_offsetError; // squared/N
   std::map<unsigned int, double> lookUpTable; // final lookup table
   std::map<unsigned int, double> single_ch_offsetError; // error of each channel
+  std::map<unsigned int, double> ch_sumDelta_t1;
+  std::map<unsigned int, double> ch_sumDelta_t2;
+  std::map<unsigned int, int> ch_sumDelta_t1_entries;
+  std::map<unsigned int, int> ch_sumDelta_t2_entries;
+  std::map<unsigned int, double> ch_sumDelta_ratio;
 
-  int maxIteration = 20;
+  int maxIteration = 50;
   int iter = 0;
   double alpha = 0.5;
   int usedChannels = 0;
 
-  int testchannel = 0;
+  int testchannel = 10;
   TGraph* g_computed_offset_testchannel = new TGraph();
+  TGraph* g_delta_t1 = new TGraph();
+  TGraph* g_delta_t2 = new TGraph();
+  TGraph* g_delta_t1t2ratio = new TGraph();
+  TGraph* g_magnitudeDeltaTk = new TGraph();
+  TGraph* g_magnitudeDeltaTk_ratio = new TGraph();
   TH1F* h_offset_correction_ratio_last = new TH1F("h_offset_correction_ratio_last", "Offset correction ratio last iteration", 100, 0., 1);
   vector<double> offset_correction_ratio_secondlast;
 
@@ -89,6 +99,7 @@ double TimeOffsetCalib(std::string filename = "../output/test_Reso0_100K.root", 
   // BEGINNING OF ITERATION LOOP
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+
   while (iter < maxIteration){
     for (int hit_i = 0; hit_i<nEntries; hit_i++){
       tree->GetEntry(hit_i);
@@ -96,18 +107,39 @@ double TimeOffsetCalib(std::string filename = "../output/test_Reso0_100K.root", 
       time1 -= lookUpTable[channel1];
       time2 -= lookUpTable[channel2];
 
+      double delta_t_1 = time1 - distance1/v;
+      double delta_t_2 = time2 - distance2/v;
+      delta_t_1 *= alpha;
+      delta_t_2 *= alpha;
+
       double delta = time1 - time2 - (distance1 - distance2) / v;
       delta *= alpha;
 
+      ch_sumDelta_t1[channel1] += delta_t_1;
+      ch_sumDelta_t2[channel1] += delta_t_2;
+      ch_sumDelta_ratio[channel1] += delta_t_2/delta_t_1;
+      ch_sumDelta_ratio[channel2] += delta_t_1/delta_t_2;
+      ch_sumDelta_t1_entries[channel1]++;
+      ch_sumDelta_t2_entries[channel1]++;
+      if(channel1==testchannel){
+//        cout<<ch_sumDelta_t1_entries[channel1]<<endl;
+//        cout<<"Delta_t1: "<<delta_t_1<<" Delta_t2: "<<delta_t_2<<endl;
+//        cout<<"Ratio: "<<delta_t_2/delta_t_1<<endl;
+      }
       ch_sumDelta[channel1] += delta;
       ch_squaredDelta[channel1] += delta * delta;
       ch_entries[channel1]++;
+      ch_sumDelta_t1[channel2] += delta_t_2;
+      ch_sumDelta_t2[channel2] += delta_t_1;
+      ch_sumDelta_t1_entries[channel2]++;
+      ch_sumDelta_t2_entries[channel2]++;
       ch_sumDelta[channel2] -= delta;
       ch_squaredDelta[channel2] += delta * delta;
       ch_entries[channel2]++;
     } // end of loop over matching hits
+
     usedChannels = ch_entries.size();
-    cout << "Iteration " << iter << ", used " << usedChannels << " channels." << endl;
+
 
     for (auto& entry : ch_sumDelta) {
       entry.second /= ch_entries[entry.first];
@@ -115,7 +147,28 @@ double TimeOffsetCalib(std::string filename = "../output/test_Reso0_100K.root", 
       // Standard deviation is sqrt(E[X^2]-E[X]^2)
       ch_offsetError[entry.first] = sqrt( ch_squaredDelta[entry.first]/ch_entries[entry.first] - entry.second*entry.second); // std dev
       //std::cout << "Nentries is: " << ch_entries[entry.first] << std::endl;
+      ch_sumDelta_t1[entry.first] /= ch_sumDelta_t1_entries[entry.first];
+      ch_sumDelta_t2[entry.first] /= ch_sumDelta_t2_entries[entry.first];
+      ch_sumDelta_ratio[entry.first] /= ch_sumDelta_t1_entries[entry.first];
     }
+    // Compute magnitude of DeltaT^k vector
+    double magDeltaTk = 0;
+    for(auto deltaTk : ch_sumDelta_t1){
+      magDeltaTk += deltaTk.second*deltaTk.second;
+    }
+    magDeltaTk= sqrt(magDeltaTk);
+    cout << "|Delta T^{k}| = " <<magDeltaTk<<endl;
+    cout << "average Delta1: " << ch_sumDelta_t1[testchannel] << " average Delta2: " << ch_sumDelta_t2[testchannel] << endl;
+    cout << "average Delta: " << ch_offset[testchannel] << endl;
+    cout << "Total corection: " << lookUpTable[testchannel] << " actual offset: "<<inputTimeOffsets[testchannel]<<endl;
+    cout << "End of iteration " << iter << ", used " << usedChannels << " channels." << endl;
+
+    g_magnitudeDeltaTk->SetPoint(iter,iter, magDeltaTk);
+    if(iter>0) g_magnitudeDeltaTk_ratio->SetPoint(iter-1,iter-1,magDeltaTk / g_magnitudeDeltaTk->GetY()[iter-1]);
+    g_delta_t1->SetPoint(iter, iter, ch_sumDelta_t1[testchannel]);
+    g_delta_t2->SetPoint(iter, iter, ch_sumDelta_t2[testchannel]);
+    g_delta_t1t2ratio->SetPoint(iter, iter, ch_sumDelta_ratio[testchannel]);
+
     // Shift all the offsets to have average = 0
     double sum = 0;
     for (auto& entry : ch_offset) {
@@ -146,6 +199,10 @@ double TimeOffsetCalib(std::string filename = "../output/test_Reso0_100K.root", 
       ch_sumDelta.clear();
       ch_squaredDelta.clear();
       ch_entries.clear();
+      ch_sumDelta_t1.clear();
+      ch_sumDelta_t2.clear();
+      ch_sumDelta_t1_entries.clear();
+      ch_sumDelta_t2_entries.clear();
     }
 
     iter++;
@@ -167,9 +224,9 @@ double TimeOffsetCalib(std::string filename = "../output/test_Reso0_100K.root", 
     cout<<endl;
   }
 
-  TH1F* h_offset_difference = new TH1F("h_offset_difference", "Difference between input and output offsets", 50, -1, 1);
-  TH1F* h_inputOffsets = new TH1F("h_inputOffsets", "Input offsets", 50, -3, 3);
-  TH1F* h_outputOffsets = new TH1F("h_outputOffsets", "Output offsets", 50, -3, 3);
+  TH1F* h_offset_difference = new TH1F("h_offset_difference", "Difference between input and output offsets; #Delta T^{0}_{set} - #Delta T^{0}_{comp}  [ns]", 5000, -1, 1);
+  TH1F* h_inputOffsets = new TH1F("h_inputOffsets", "Input offsets; #Delta T^{0} [ns]", 50, -3, 3);
+  TH1F* h_outputOffsets = new TH1F("h_outputOffsets", "Output offsets; #Delta T^{0} [ns]", 50, -3, 3);
   TGraph* g_inputOffsets = new TGraph();
   TGraph* g_outputOffsets = new TGraph();
   TGraph* g_residuals = new TGraph();
@@ -307,6 +364,54 @@ double TimeOffsetCalib(std::string filename = "../output/test_Reso0_100K.root", 
 
   TCanvas* c_offsetCorrection = new TCanvas("c_offsetCorrection", "c_offsetCorrection", 1800, 600);
   h_offset_correction_ratio_last->Draw();
+
+  TCanvas* c_delta12 = new TCanvas("c_delta12", "c_delta12", 1800, 600);
+  c_delta12->Divide(2,1);
+  c_delta12->cd(1);
+  g_magnitudeDeltaTk->SetMarkerStyle(20);
+  g_magnitudeDeltaTk->SetMarkerSize(0.5);
+  g_magnitudeDeltaTk->SetMarkerColor(1);
+  g_magnitudeDeltaTk->SetLineColor(1);
+  g_magnitudeDeltaTk->SetTitle("|#Delta T^{k}|; k; |#Delta T^{k}|");
+  g_magnitudeDeltaTk->Draw("APL");
+//  c_delta12->cd(2);
+//  g_delta_t2->SetMarkerStyle(20);
+//  g_delta_t2->SetMarkerSize(0.5);
+//  g_delta_t2->SetMarkerColor(2);
+//  g_delta_t2->SetLineColor(2);
+//  g_delta_t2->SetTitle("#sum_n (t_2-s_2);Iteration;Delta t2 [ns]");
+//  g_delta_t2->Draw("APL");
+//  c_delta12->cd(1);
+//  g_delta_t2->Draw("samePL");
+//  TGraph* g_deltat1_sum = new TGraph();
+//  double sum = 0;
+//  for(int i = 0; i < g_delta_t1->GetN(); i++) {
+//    sum += g_delta_t1->GetY()[i] - g_delta_t2->GetY()[i];
+//    g_deltat1_sum->SetPoint(g_deltat1_sum->GetN(), i, sum);
+//  }
+//  g_deltat1_sum->SetMarkerStyle(20);
+//  g_deltat1_sum->SetMarkerSize(0.5);
+//  g_deltat1_sum->SetMarkerColor(3);
+//  g_deltat1_sum->SetLineColor(3);
+//  g_deltat1_sum->Draw("samePL");
+//  TGraph* g_computed_offset_testchannel_new = new TGraph(*g_computed_offset_testchannel);
+//  g_computed_offset_testchannel_new->Draw("samePL");
+//  g_computed_offset_testchannel_new->SetMarkerColor(4);
+//  g_computed_offset_testchannel_new->SetLineColor(4);
+//  line->Draw("same");
+//  g_delta_t1t2ratio->SetMarkerStyle(20);
+//  g_delta_t1t2ratio->SetMarkerSize(0.5);
+//  g_delta_t1t2ratio->SetMarkerColor(kMagenta);
+//  g_delta_t1t2ratio->SetLineColor(kMagenta);
+//  g_delta_t1t2ratio->Draw("APL");
+//  g_delta_t1t2ratio->SetTitle("1/N_{A}#sum_{n} #frac{t_{2}-s_{2}}{t_{1}-s_{1}};Iteration;Delta t2/Delta t1");
+   c_delta12->cd(2);
+  g_magnitudeDeltaTk_ratio->SetMarkerStyle(20);
+  g_magnitudeDeltaTk_ratio->SetMarkerSize(0.5);
+  g_magnitudeDeltaTk_ratio->SetMarkerColor(kMagenta);
+  g_magnitudeDeltaTk_ratio->SetLineColor(kMagenta);
+  g_magnitudeDeltaTk_ratio->Draw("APL");
+  g_magnitudeDeltaTk_ratio->SetTitle("|#Delta T^{k}|/|#Delta T^{k-1}|; k; |#Delta T^{k}|/|#Delta T^{k-1}|");
 
 
   if (batchMode) {

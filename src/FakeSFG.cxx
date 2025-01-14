@@ -215,7 +215,7 @@ std::pair< unsigned int , std::vector<unsigned int> > FakeSFG::getRandomCube() {
 
 
 void FakeSFG::generateMapCubeToChannels() {
-  std::cout<<"Toy Super-FGD is being built..."<<std::endl;
+  std::cout<<"Building toy Super-FGD..."<<std::endl;
   // Progress bar
   int progress = 0;
   for (auto const& [key, val] : cubes) {

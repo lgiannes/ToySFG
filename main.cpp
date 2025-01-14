@@ -18,7 +18,8 @@ int main(int argc, char const *argv[]) {
     return 1;
   }
 
-  std::string offset_type = "random";
+
+  std::string offset_type = "alternating"; // sawtooth, gaussian, random, alternating
   FakeSFG fsfg(n_x, n_y, n_z, offset_type,timeResolution,-1);
 
 //  fsfg.printCubes();
