@@ -21,6 +21,14 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_library(FakeSFG SHARED src/FakeSFG.cxx)
 target_link_libraries(FakeSFG PUBLIC ${ROOT_LIBRARIES})
 
+# Add another library target
+add_library(FakeTOF SHARED src/FakeTOF.cxx)
+target_link_libraries(FakeTOF PUBLIC ${ROOT_LIBRARIES})
+
 # Add executable target
 add_executable(MakeMatchingHits main.cpp src/FakeSFG.cxx)
 target_link_libraries(MakeMatchingHits PUBLIC FakeSFG ${ROOT_LIBRARIES})
+
+# Add executable target
+add_executable(MakeMatchingHitsTOF mainFakeTOF.cpp src/FakeTOF.cxx)
+target_link_libraries(MakeMatchingHitsTOF PUBLIC FakeTOF ${ROOT_LIBRARIES})
