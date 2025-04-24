@@ -1,6 +1,6 @@
 
 
-double TimeOffsetCalib(std::string filename = "../output/test_Reso0_100K.root", bool saveImage = true, bool batchMode = false, int maxEntries = -1) {
+double TimeOffsetCalib(std::string filename = "../build/test_Reso0_100K.root", bool saveImage = true, bool batchMode = false, int maxEntries = -1) {
   if (batchMode) {
     gROOT->SetBatch(kTRUE);
   }

@@ -101,20 +101,22 @@ FakeTOF::FakeTOF(std::string offset_type, double timeReso) : intrinsicTimeResolu
 }
 
 void FakeTOF::initializeTree() {
-    matchingHitsTree = new TTree("matchingHits", "Matching hits");
+    matchingHitsTree = new TTree("matchingHitsTree", "Matching hits");
     matchingHitsTree->Branch("panel1", &thisMatchingHitsPair.panel1, "panel/I");
     matchingHitsTree->Branch("bar1", &thisMatchingHitsPair.bar1, "bar/I");
     matchingHitsTree->Branch("time1", &thisMatchingHitsPair.time1, "time/D");
     matchingHitsTree->Branch("panel2", &thisMatchingHitsPair.panel2, "panel/I");
     matchingHitsTree->Branch("bar2", &thisMatchingHitsPair.bar2, "bar/I");
     matchingHitsTree->Branch("time2", &thisMatchingHitsPair.time2, "time/D");
+    matchingHitsTree->Branch("channelId1", &thisMatchingHitsPair.channel1, "channelId1/I");
+    matchingHitsTree->Branch("channelId2", &thisMatchingHitsPair.channel2, "channelId2/I");
     matchingHitsTree->Branch("distance", &thisMatchingHitsPair.distance, "distance/D");
     matchingHitsTree->Branch("flightTimePostOffset", &thisMatchingHitsPair.flightTimePostOffset, "flightTimePostOffset/D");
     matchingHitsTree->Branch("flightTimeRaw", &thisMatchingHitsPair.flightTimeRaw, "flightTimeRaw/D");
     matchingHitsTree->Branch("correctedTime1", &thisMatchingHitsPair.correctedTime1, "correctedTime1/D");
     matchingHitsTree->Branch("correctedTime2", &thisMatchingHitsPair.correctedTime2, "correctedTime2/D");
-    matchingHitsTree->Branch("hit1Position", thisMatchingHitsPair.hit1Position, "hit1Position[3]/D");
-    matchingHitsTree->Branch("hit2Position", thisMatchingHitsPair.hit2Position, "hit2Position[3]/D");
+    matchingHitsTree->Branch("hit1Position", &thisMatchingHitsPair.hit1Position, "hit1Position[3]/D");
+    matchingHitsTree->Branch("hit2Position", &thisMatchingHitsPair.hit2Position, "hit2Position[3]/D");
     matchingHitsTree->Branch("DeltaTimePostOffset", &thisMatchingHitsPair.DeltaTimePostOffset, "DeltaTimePostOffset/D");
 }
 
@@ -221,6 +223,33 @@ void FakeTOF::setTimeOffsets(std::string offset_type) {
     for(auto const& [key, val]: time_offsetsSouth){
         writableTimeOffsetsSouth->push_back(val);
     }
+
+    writableTimeOffsets = new std::vector<double>;
+    for(auto const& [key, val]: time_offsetsTop){
+        writableTimeOffsets->push_back(val);
+    }
+    for(auto const& [key, val]: time_offsetsBottom){
+        writableTimeOffsets->push_back(val);
+    }
+    for(auto const& [key, val]: time_offsetsUpstream){
+        writableTimeOffsets->push_back(val);
+    }
+
+    for(auto const& [key, val]: time_offsetsDownstream){
+        writableTimeOffsets->push_back(val);
+    }
+    for(auto const& [key, val]: time_offsetsNorth){
+        writableTimeOffsets->push_back(val);
+    }
+    for(auto const& [key, val]: time_offsetsSouth){
+        writableTimeOffsets->push_back(val);
+    }
+
+    std::cout<< "Time offsets Size" << writableTimeOffsets->size() << std::endl;
+
+    std::cout << "Time offsets initialized" << std::endl;
+
+
 }
 
 void FakeTOF::setRandomTimeOffsets(double pitch) {
@@ -611,6 +640,8 @@ FakeTOF::matchingHitsPair FakeTOF::simulateTimeHit() {
     pair.panel2 = panel_s;
     pair.bar2 = bar_s;
     pair.time2 = time_Raw + time_offset_s + rnd.Gaus(0, intrinsicTimeResolution);
+    pair.channel1 = getChannelID(panel_f, bar_f); // Get the channel ID for the first hit
+    pair.channel2 = getChannelID(panel_s, bar_s); // Get the channel ID for the second hit
     pair.distance = distance;
     pair.flightTimePostOffset = pair.time2 - pair.time1;
     pair.flightTimeRaw = time_Raw;
@@ -625,8 +656,8 @@ FakeTOF::matchingHitsPair FakeTOF::simulateTimeHit() {
     pair.DeltaTimePostOffset = pair.time2 - pair.time1 - distance / speed_of_light;
 
     if(verbose) {
-        std::cout << "DEBUG: panel1: " << getPanelName(pair.panel1) << ", bar1: " << pair.bar1 << ", time1: " << pair.time1 << std::endl;
-        std::cout << "DEBUG: panel2: " << getPanelName(pair.panel2) << ", bar2: " << pair.bar2 << ", time2: " << pair.time2 << std::endl;
+        std::cout << "DEBUG: panel1: " << getPanelName(pair.panel1) << ", bar1: " << pair.bar1 << ", Channel Id: "<< pair.channel1 << ", time1: " << pair.time1 << std::endl;
+        std::cout << "DEBUG: panel2: " << getPanelName(pair.panel2) << ", bar2: " << pair.bar2 << ", Channel Id: "<< pair.channel2 << ", time2: " << pair.time2 << std::endl;
         std::cout << "DEBUG: distance: " << pair.distance << std::endl;
         std::cout << "DEBUG: hit1Position: " << pair.hit1Position[0] << ", " << pair.hit1Position[1] << ", " << pair.hit1Position[2] << std::endl;
         std::cout << "DEBUG: hit2Position: " << pair.hit2Position[0] << ", " << pair.hit2Position[1] << ", " << pair.hit2Position[2] << std::endl;
@@ -654,8 +685,8 @@ void FakeTOF::generateMatchingHitsTree(int NHits) {
 
         thisMatchingHitsPair = simulateTimeHit();
         if (verbose) {
-            std::cout << "Panel1: " << getPanelName(thisMatchingHitsPair.panel1) << ", Bar1: " << thisMatchingHitsPair.bar1 << ", Time1: " << thisMatchingHitsPair.time1 << std::endl;
-            std::cout << "Panel2: " << getPanelName(thisMatchingHitsPair.panel2) << ", Bar2: " << thisMatchingHitsPair.bar2 << ", Time2: " << thisMatchingHitsPair.time2 << std::endl;
+            std::cout << "Panel1: " << getPanelName(thisMatchingHitsPair.panel1) << ", Bar1: " << thisMatchingHitsPair.bar1 << ", ChannelID: "<< thisMatchingHitsPair.channel1 << ", Time1: " << thisMatchingHitsPair.time1 << std::endl;
+            std::cout << "Panel2: " << getPanelName(thisMatchingHitsPair.panel2) << ", Bar2: " << thisMatchingHitsPair.bar2 << ", ChannelID: "<< thisMatchingHitsPair.channel2 << ", Time2: " << thisMatchingHitsPair.time2 << std::endl;
             std::cout << "Distance: " << thisMatchingHitsPair.distance << std::endl;
         }
         matchingHitsTree->Fill();
@@ -668,7 +699,7 @@ void FakeTOF::generateMatchingHitsTree(int NHits) {
 
 void FakeTOF::initializeConfigTree() {
 
-    configTree = new TTree("config", "Tree containing the configuration of the bars in the Toy TOF");
+    configTree = new TTree("configTree", "Tree containing the configuration of the bars in the Toy TOF");
 
     configTree->Branch("Topbars", &Topbars, "Topbars[10][3]/D");
     configTree->Branch("Bottombars", &Bottombars, "Bottombars[10][3]/D");
@@ -681,18 +712,19 @@ void FakeTOF::initializeConfigTree() {
     configTree->Branch("barLength", &barLength, "barLength/D");
     configTree->Branch("barSeparation", &barSeparation, "barSeparation/D");
     configTree->Branch("barsPerPanel", &barsPerPanel, "barsPerPanel/I");
-    configTree->Branch("TopBar0", TopBar0, "TopBar0[3]/D");
-    configTree->Branch("BottomBar0", BottomBar0, "BottomBar0[3]/D");
-    configTree->Branch("UpstreamBar0", UpstreamBar0, "UpstreamBar0[3]/D");
-    configTree->Branch("DownstreamBar0", DownstreamBar0, "DownstreamBar0[3]/D");
-    configTree->Branch("NorthBar0", NorthBar0, "NorthBar0[3]/D");
-    configTree->Branch("SouthBar0", SouthBar0, "SouthBar0[3]/D");
-    configTree->Branch("time_offsetsTop", writableTimeOffsetsTop);
-    configTree->Branch("time_offsetsBottom", writableTimeOffsetsBottom);
-    configTree->Branch("time_offsetsUpstream", writableTimeOffsetsUpstream);
-    configTree->Branch("time_offsetsDownstream", writableTimeOffsetsDownstream);
-    configTree->Branch("time_offsetsNorth", writableTimeOffsetsNorth);
-    configTree->Branch("time_offsetsSouth", writableTimeOffsetsSouth);
+    configTree->Branch("TopBar0", &TopBar0, "TopBar0[3]/D");
+    configTree->Branch("BottomBar0", &BottomBar0, "BottomBar0[3]/D");
+    configTree->Branch("UpstreamBar0", &UpstreamBar0, "UpstreamBar0[3]/D");
+    configTree->Branch("DownstreamBar0", &DownstreamBar0, "DownstreamBar0[3]/D");
+    configTree->Branch("NorthBar0", &NorthBar0, "NorthBar0[3]/D");
+    configTree->Branch("SouthBar0", &SouthBar0, "SouthBar0[3]/D");
+    configTree->Branch("time_offsetsTop", &writableTimeOffsetsTop);
+    configTree->Branch("time_offsetsBottom", &writableTimeOffsetsBottom);
+    configTree->Branch("time_offsetsUpstream", &writableTimeOffsetsUpstream);
+    configTree->Branch("time_offsetsDownstream", &writableTimeOffsetsDownstream);
+    configTree->Branch("time_offsetsNorth", &writableTimeOffsetsNorth);
+    configTree->Branch("time_offsetsSouth", &writableTimeOffsetsSouth);
+    configTree->Branch("time_offsets", &writableTimeOffsets);
 
     configTree->Fill();
 }

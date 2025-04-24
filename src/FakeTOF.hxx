@@ -22,9 +22,9 @@ private:
     double speed_of_light = 30; // cm/ns
     double intrinsicTimeResolution; // ns
     double barLength = 200; // cm
-    double barSeparation = 15; // cm
+    double barSeparation = 37.5; // cm
 
-    int barsPerPanel = 10; // Number of bars per panel
+    int barsPerPanel = 5; // Number of bars per panel
 
     double TopBar0[3] = {0, 100, -75}; // From upstream to downstream
     double BottomBar0[3] = {0, -100, -75}; // From upstream to downstream
@@ -68,6 +68,8 @@ private:
         int panel2;
         int bar1;
         int bar2;
+        int channel1;
+        int channel2;
         double distance;
         double flightTimePostOffset;
         double flightTimeRaw;
@@ -91,6 +93,8 @@ private:
     std::vector<double> *writableTimeOffsetsDownstream;
     std::vector<double> *writableTimeOffsetsNorth;
     std::vector<double> *writableTimeOffsetsSouth;
+
+    std::vector<double> *writableTimeOffsets;
 
     void initializeTree();
     void initializeConfigTree();
@@ -118,6 +122,23 @@ public:
 
     TTree* getMatchingHitsTree() { return matchingHitsTree; } // Get the matching hits tree
     TTree* getConfigTree() { return configTree; } // Get the configuration tree
+
+    int getChannelID(int panel, int bar) const {
+        if (panel == 0) {
+            return bar;
+        } else if (panel == 1) {
+            return bar + barsPerPanel;
+        } else if (panel == 2) {
+            return bar + 2 * barsPerPanel;
+        } else if (panel == 3) {
+            return bar + 3 * barsPerPanel;
+        } else if (panel == 4) {
+            return bar + 4 * barsPerPanel;
+        } else if (panel == 5) {
+            return bar + 5 * barsPerPanel;
+        }
+        return -1; // Invalid panel
+    }
 
 
 };

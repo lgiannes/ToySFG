@@ -7,17 +7,19 @@
 int main(int argc, char const *argv[]) {
   int N;
   double timeResolution;
+  std::string offset_type;
   std::string outputFileName;
-  if(argc == 4) {
+  if(argc == 5) {
     outputFileName = argv[1];
     N = atoi(argv[2]);
     timeResolution = atof(argv[3]);
+    offset_type = argv[4];
   } else{
-    std::cerr<<"Usage: "<<argv[0]<<" <outputFileName> <Nhits> <timeReso (ps)>"<<std::endl;
+    std::cerr<<"Usage: "<<argv[0]<<" <outputFileName> <Nhits> <timeReso (ps)> <Offset type>"<<std::endl;
     return 1;
   }
 
-    std::string offset_type = "random"; // sawtooth, gaussian, random, alternating
+//    std::string offset_type = "random"; // sawtooth, gaussian, random, alternating
     FakeTOF ftof(offset_type,(timeResolution/1000));
     ftof.setVerbose(false);
 
