@@ -1,3 +1,4 @@
+#include "common_utils.h"
 
 double ComputeCrossingMatrix(std::string filename = "../output/test_2ch.root") {
 
@@ -311,20 +312,9 @@ double ComputeCrossingMatrix(std::string filename = "../output/test_2ch.root") {
   cout<<" Convergence rate: "<<abs(eigenvalues_corrected[1])<<" (second largest eigenvalue)"<<endl;
 
 
-  TH2D* hC = new TH2D("hC", "Normalized Matrix C;Channel i;Channel j",
-                      nChannels, 0, nChannels,
-                      nChannels, 0, nChannels);
+  // Draw the matrix
+  common_utils::draw_matrix(C, nChannels, "Crossing matrix");
 
-  for (int i = 0; i < nChannels; ++i) {
-    for (int j = 0; j < nChannels; ++j) {
-      hC->SetBinContent(i + 1, j + 1, C[i][j]);  // Bin numbers start at 1
-    }
-  }
-  hC->SetStats(0);
-  hC->SetTitle("Crossing matrix");
-  hC->GetXaxis()->SetTitle("Channel i");
-  hC->GetYaxis()->SetTitle("Channel j");
-  hC->Draw("COLZ");
   cout<<n_x<<" "<<n_y<<" "<<n_z<<endl;
 
   return 0;

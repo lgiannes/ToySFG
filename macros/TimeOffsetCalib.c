@@ -1,6 +1,6 @@
 
 
-double TimeOffsetCalib(std::string filename = "../output/uniform/toySFG_600ch_Reso250.root", bool saveImage = true, bool batchMode = false, int maxEntries = -1) {
+double TimeOffsetCalib(std::string filename = "../build/uniform/toySFG_600ch_Reso250.root", bool saveImage = true, bool batchMode = false, int maxEntries = -1) {
   if (batchMode) {
     gROOT->SetBatch(kTRUE);
   }
@@ -58,12 +58,6 @@ double TimeOffsetCalib(std::string filename = "../output/uniform/toySFG_600ch_Re
     inputTimeOffsets[i] = writableTimeOffsets->at(i);
     cout << "Channel " << i << ": " << inputTimeOffsets[i] << endl;
   }
-  double inputOffsetAverage = 0;
-  for (auto& entry : inputTimeOffsets) {
-    inputOffsetAverage += entry.second;
-  }
-  inputOffsetAverage /= inputTimeOffsets.size();
-  cout<<"Average input offset: "<<inputOffsetAverage<<endl;
   int nChannels = inputTimeOffsets.size();
 
   // Start time offset calibration
@@ -81,9 +75,9 @@ double TimeOffsetCalib(std::string filename = "../output/uniform/toySFG_600ch_Re
   std::map<unsigned int, int> ch_sumDelta_t2_entries;
   std::map<unsigned int, double> ch_sumDelta_ratio;
 
-  int maxIteration = 40;
+  int maxIteration = 50;
   int iter = 0;
-  double alpha = 0.75;
+  double alpha = 0.5;
   int usedChannels = 0;
 
   int testchannel = 10;
@@ -93,7 +87,6 @@ double TimeOffsetCalib(std::string filename = "../output/uniform/toySFG_600ch_Re
   TGraph* g_delta_t1t2ratio = new TGraph();
   TGraph* g_magnitudeDeltaTk = new TGraph();
   TGraph* g_magnitudeDeltaTk_ratio = new TGraph();
-  TGraph* g_W_minus_T0 = new TGraph();
   TH1F* h_offset_correction_ratio_last = new TH1F("h_offset_correction_ratio_last", "Offset correction ratio last iteration", 100, 0., 1);
   vector<double> offset_correction_ratio_secondlast;
 
@@ -116,8 +109,8 @@ double TimeOffsetCalib(std::string filename = "../output/uniform/toySFG_600ch_Re
 
       double delta_t_1 = time1 - distance1/v;
       double delta_t_2 = time2 - distance2/v;
-//      delta_t_1 *= alpha;
-//      delta_t_2 *= alpha;
+      delta_t_1 *= alpha;
+      delta_t_2 *= alpha;
 
       double delta = time1 - time2 - (distance1 - distance2) / v;
       delta *= alpha;
@@ -160,22 +153,14 @@ double TimeOffsetCalib(std::string filename = "../output/uniform/toySFG_600ch_Re
     }
     // Compute magnitude of DeltaT^k vector
     double magDeltaTk = 0;
-//    cout << "T^{k}: "<<endl;
     for(auto deltaTk : ch_sumDelta_t1){
       magDeltaTk += deltaTk.second*deltaTk.second;
-//      cout << std::setprecision(3)<<deltaTk.second << " ";
     }
-//    cout<< endl;
-
     magDeltaTk= sqrt(magDeltaTk);
-    cout << "|T^{k}| = " <<magDeltaTk<<" ns."<<endl;
-//    for(int testchannel = 0; testchannel < nChannels; testchannel++) {
-//      cout << "average Delta1: " << ch_sumDelta_t1[testchannel] << " average Delta2: " << ch_sumDelta_t2[testchannel]
-//           << endl;
-//      cout << "average Delta: " << ch_offset[testchannel] << endl;
-//      cout << "Total correction: " << lookUpTable[testchannel] << " actual offset: " << inputTimeOffsets[testchannel]
-//           << endl;
-//    }
+    cout << "|Delta T^{k}| = " <<magDeltaTk<<endl;
+    cout << "average Delta1: " << ch_sumDelta_t1[testchannel] << " average Delta2: " << ch_sumDelta_t2[testchannel] << endl;
+    cout << "average Delta: " << ch_offset[testchannel] << endl;
+    cout << "Total corection: " << lookUpTable[testchannel] << " actual offset: "<<inputTimeOffsets[testchannel]<<endl;
     cout << "End of iteration " << iter << ", used " << usedChannels << " channels." << endl;
 
     g_magnitudeDeltaTk->SetPoint(iter,iter, magDeltaTk);
@@ -205,18 +190,7 @@ double TimeOffsetCalib(std::string filename = "../output/uniform/toySFG_600ch_Re
         h_offset_correction_ratio_last->Fill(entry.second/offset_correction_ratio_secondlast[entry.first]);
       }
     }
-    // print lookup table
-//    cout<< "Lookup table: \n";
-//    for (auto& entry : lookUpTable) {
-//      cout << entry.second << " ";
-//    }
-//    cout << endl;
-    double magnitude_W_minus_T0 = 0;
-    for (auto& entry : lookUpTable) {
-      magnitude_W_minus_T0 += (entry.second - inputTimeOffsets[entry.first])*(entry.second - inputTimeOffsets[entry.first]);
-    }
-    magnitude_W_minus_T0 = sqrt(magnitude_W_minus_T0);
-    g_W_minus_T0->SetPoint(iter, iter, magnitude_W_minus_T0);
+
 
     g_computed_offset_testchannel->SetPoint(iter, iter, lookUpTable[testchannel]);
 
@@ -238,10 +212,6 @@ double TimeOffsetCalib(std::string filename = "../output/uniform/toySFG_600ch_Re
   // END OF ITERATION LOOP
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  // Correct offsets with the input average (it should be zero!!)
-  for (auto& entry : lookUpTable) {
-    entry.second += inputOffsetAverage;
-  }
 
   if (usedChannels < nChannels){
     int notCalibrated = nChannels - usedChannels;
@@ -254,9 +224,9 @@ double TimeOffsetCalib(std::string filename = "../output/uniform/toySFG_600ch_Re
     cout<<endl;
   }
 
-  TH1F* h_offset_difference = new TH1F("h_offset_difference", "Difference between input and output offsets; T^{0}_{set} - T^{0}_{found}  [ns]; Number of channels", 1000, -1, 1);
-  TH1F* h_inputOffsets = new TH1F("h_inputOffsets", "Input offsets / output offsets; T^{0} [ns]; Number of channels", 120, -7, 7);
-  TH1F* h_outputOffsets = new TH1F("h_outputOffsets", "Output offsets; T^{0} [ns]", 120, -7, 7);
+  TH1F* h_offset_difference = new TH1F("h_offset_difference", "Difference between input and output offsets; #Delta T^{0}_{set} - #Delta T^{0}_{comp}  [ns]", 5000, -1, 1);
+  TH1F* h_inputOffsets = new TH1F("h_inputOffsets", "Input offsets; #Delta T^{0} [ns]", 50, -3, 3);
+  TH1F* h_outputOffsets = new TH1F("h_outputOffsets", "Output offsets; #Delta T^{0} [ns]", 50, -3, 3);
   TGraph* g_inputOffsets = new TGraph();
   TGraph* g_outputOffsets = new TGraph();
   TGraph* g_residuals = new TGraph();
@@ -286,13 +256,7 @@ double TimeOffsetCalib(std::string filename = "../output/uniform/toySFG_600ch_Re
   c_offDiff->Divide(2,1);
   c_offDiff->cd(1);
   h_offset_difference->Draw();
-  TLatex latex4;
-  latex4.SetTextSize(0.03);
-  latex4.SetNDC();
-  latex4.DrawLatex(0.15, 0.86, Form("Matching hit pairs: %d", nEntries));
-  latex4.DrawLatex(0.15, 0.82, Form("Mean: %.2f ps", 1000*h_offset_difference->GetMean()));
-  latex4.DrawLatex(0.15, 0.78, Form("St.dev: %.2f ps", 1000*h_offset_difference->GetRMS()));
-//  h_offset_difference->Fit("gaus","Q");
+  h_offset_difference->Fit("gaus","Q");
 //  double sigma_offset = h_offset_difference->GetFunction("gaus")->GetParameter(2);
   double sigma_offset = h_offset_difference->GetRMS();
   cout << "Mean of Offset_{measured} - Offset_{set} = " <<1000*h_offset_difference->GetMean() << " ps." << endl;
@@ -306,28 +270,20 @@ double TimeOffsetCalib(std::string filename = "../output/uniform/toySFG_600ch_Re
   h_deltaBeforeCalib->SetLineColor(kRed);
   h_deltaBeforeCalib->Draw("same");
   h_deltaBeforeCalib->Fit("gaus","Q");
-  h_deltaAfterCalib->GetFunction("gaus")->SetLineColor(kBlue);
-  h_deltaBeforeCalib->SetStats(0);
-  h_deltaAfterCalib->SetStats(0);
-  h_deltaBeforeCalib->SetTitle("#Delta distribution before and after calibration");
-  h_deltaAfterCalib->SetTitle("#Delta distribution before and after calibration");
-  h_deltaAfterCalib->GetXaxis()->SetTitle("#Delta [ns]");
-  h_deltaAfterCalib->GetYaxis()->SetTitle("Matching hit pairs");
-
   double sigma_before = h_deltaBeforeCalib->GetFunction("gaus")->GetParameter(2);
   double sigma_after = h_deltaAfterCalib->GetFunction("gaus")->GetParameter(2);
   TLatex latex;
   latex.SetTextSize(0.03);
   latex.SetNDC();
-  latex.DrawLatex(0.15, 0.86, Form("Before calib: #sigma_{#Delta}= %.2f ns", sigma_before));
-  latex.DrawLatex(0.15, 0.82, Form("After calib: #sigma_{#Delta}= %.2f ns", sigma_after));
-  TLegend* leg = new TLegend(0.65, 0.75, 0.9, 0.9);
+  latex.DrawLatex(0.2, 0.91, Form("Before calib sigma: %.2f", sigma_before));
+  latex.DrawLatex(0.2, 0.85, Form("After calib sigma: %.2f", sigma_after));
+  TLegend* leg = new TLegend(0.7, 0.7, 0.9, 0.9);
   leg->AddEntry(h_deltaBeforeCalib, "Before calibration", "l");
   leg->AddEntry(h_deltaAfterCalib, "After calibration", "l");
   leg->Draw();
   string reducedFilename = filename.substr(filename.find_last_of("/")+1);
-//  h_deltaAfterCalib->SetTitle(reducedFilename.c_str());
-//  h_deltaBeforeCalib->SetTitle(reducedFilename.c_str());
+  h_deltaAfterCalib->SetTitle(reducedFilename.c_str());
+  h_deltaBeforeCalib->SetTitle(reducedFilename.c_str());
 
   if (saveImage)
     c_offDiff->SaveAs(Form("TimeOffsetCalib_%s.png", reducedFilename.c_str()));
@@ -382,8 +338,6 @@ double TimeOffsetCalib(std::string filename = "../output/uniform/toySFG_600ch_Re
   h_inputOffsets->SetLineStyle(2);
   h_inputOffsets->SetLineWidth(4);
   h_outputOffsets->SetLineColor(kBlue);
-  h_inputOffsets->SetStats(0);
-  h_outputOffsets->SetStats(0);
   h_inputOffsets->Draw();
   h_outputOffsets->Draw("same");
   TLegend *inputputputleg = new TLegend(0.1,0.7,0.48,0.9);
@@ -408,27 +362,6 @@ double TimeOffsetCalib(std::string filename = "../output/uniform/toySFG_600ch_Re
   g_residuals->SetTitle("Residuals;Channel;Offset_{output} - Offset_{input} [ps]");
   g_residuals->Draw("APL");
 
-  TCanvas *c_offsetcompare = new TCanvas("c_offsetcompare", "c_offsetcompare", 1800, 600);
-  c_offsetcompare->Divide(2,1);
-  c_offsetcompare->cd(1);
-  h_offset_difference->Draw();
-  h_offset_difference->GetXaxis()->SetRangeUser(-0.2, 0.2);
-
-  h_offset_difference->SetStats(0);
-  // Print mean and standard deviation
-  TLatex latex3;
-  latex3.SetTextSize(0.03);
-  latex3.SetNDC();
-  latex3.DrawLatex(0.15, 0.86, Form("Mean: %.2f ps", 1000*h_offset_difference->GetMean()));
-  latex3.DrawLatex(0.15, 0.82, Form("St.dev: %.2f ps", 1000*h_offset_difference->GetRMS()));
-  c_offsetcompare->cd(2);
-  h_inputOffsets->Draw();
-  h_outputOffsets->Draw("same");
-  inputputputleg->Draw();
-
-
-
-
   TCanvas* c_offsetCorrection = new TCanvas("c_offsetCorrection", "c_offsetCorrection", 1800, 600);
   h_offset_correction_ratio_last->Draw();
 
@@ -439,7 +372,7 @@ double TimeOffsetCalib(std::string filename = "../output/uniform/toySFG_600ch_Re
   g_magnitudeDeltaTk->SetMarkerSize(0.5);
   g_magnitudeDeltaTk->SetMarkerColor(1);
   g_magnitudeDeltaTk->SetLineColor(1);
-  g_magnitudeDeltaTk->SetTitle("|T^{k}|; k; |T^{k}|");
+  g_magnitudeDeltaTk->SetTitle("|#Delta T^{k}|; k; |#Delta T^{k}|");
   g_magnitudeDeltaTk->Draw("APL");
 //  c_delta12->cd(2);
 //  g_delta_t2->SetMarkerStyle(20);
@@ -478,53 +411,12 @@ double TimeOffsetCalib(std::string filename = "../output/uniform/toySFG_600ch_Re
   g_magnitudeDeltaTk_ratio->SetMarkerColor(kMagenta);
   g_magnitudeDeltaTk_ratio->SetLineColor(kMagenta);
   g_magnitudeDeltaTk_ratio->Draw("APL");
-  g_magnitudeDeltaTk_ratio->SetTitle("|T^{k}|/|T^{k-1}|; k; |T^{k}|/|T^{k-1}|");
+  g_magnitudeDeltaTk_ratio->SetTitle("|#Delta T^{k}|/|#Delta T^{k-1}|; k; |#Delta T^{k}|/|#Delta T^{k-1}|");
 
-  TCanvas* c_W_minus_T0 = new TCanvas("c_W_minus_T0", "c_W_minus_T0", 800, 600);
-  c_W_minus_T0->cd();
-  g_W_minus_T0->SetMarkerStyle(20);
-  g_W_minus_T0->SetMarkerSize(0.5);
-  g_W_minus_T0->SetMarkerColor(1);
-  g_W_minus_T0->SetLineColor(1);
-  g_W_minus_T0->SetTitle("Magnitude of residual offset vector;Iteration (k);|W^{k} - T^{0}|");
-  g_W_minus_T0->Draw("APL");
-  g_W_minus_T0->SetName("g_W_minus_T0");
-  g_W_minus_T0->SaveAs("g_W_minus_T0.root");
 
   if (batchMode) {
     gROOT->SetBatch(kFALSE);
   }
-
-  TH1D* h_INoffset_vs_channel = new TH1D("h_INoffset_vs_channel", "Input offsets vs. channel;Channel;Offset [ns]", nChannels, 0, nChannels);
-  TH1D* h_OUToffset_vs_channel = new TH1D("h_OUToffset_vs_channel", "Output offsets vs. channel;Channel;Offset [ns]", nChannels, 0, nChannels);
-  // Print offsets
-  cout<<"Final offsets:"<<endl;
-  for (auto& entry : lookUpTable) {
-    cout << entry.second << " ";
-    h_INoffset_vs_channel->SetBinContent(entry.first+1, inputTimeOffsets[entry.first]);
-  }
-  cout<<"\nInput offsets:"<<endl;
-  // Print set offsets
-  for (auto& entry : inputTimeOffsets) {
-    cout << entry.second << " ";
-    h_OUToffset_vs_channel->SetBinContent(entry.first+1, lookUpTable[entry.first]);
-  }
-
-  TCanvas* c_offset_vs_channel = new TCanvas("c_offset_vs_channel", "c_offset_vs_channel", 800, 600);
-  h_INoffset_vs_channel->SetMarkerColor(kBlue);
-  h_INoffset_vs_channel->SetStats(0);
-  h_INoffset_vs_channel->SetMarkerStyle(41);
-  h_INoffset_vs_channel->Draw("p");
-  h_OUToffset_vs_channel->SetMarkerStyle(43);
-  h_OUToffset_vs_channel->SetMarkerColor(kRed);
-  h_OUToffset_vs_channel->SetStats(0);
-  h_OUToffset_vs_channel->Draw("same p");
-
-
-
-
-
-  cout<<endl;
   return sigma_offset;
 
 }
