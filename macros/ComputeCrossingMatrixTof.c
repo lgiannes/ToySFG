@@ -111,6 +111,18 @@ double ComputeCrossingMatrix(std::string filename = "") {
     }
     cout << "\n";
 
+    TH2D* hC = new TH2D("hC", "Normalized Matrix C;Channel i;Channel j",
+                        nChannels, 0, nChannels,
+                        nChannels, 0, nChannels);
+
+    for (int i = 0; i < nChannels; ++i) {
+        for (int j = 0; j < nChannels; ++j) {
+            hC->SetBinContent(i + 1, j + 1, C[i][j]);  // Bin numbers start at 1
+        }
+    }
+
+
+
     //////////////////////////////////////// ALPHA
     double a = 0.5;
     //////////////////////////////////////////////
@@ -319,6 +331,12 @@ double ComputeCrossingMatrix(std::string filename = "") {
     cout << " Perron-Frobenius eigenvalue: " << abs(eigenvalues_corrected[0]) << " (largest absolute eigenvalue)"
          << endl;
     cout << " Convergence rate: " << abs(eigenvalues_corrected[1]) << " (second largest eigenvalue)" << endl;
+
+    hC->SetStats(0);
+//    hC->SetMinimum(0);
+//    hC->SetMaximum(0.07);
+    hC->Draw("COLZ");
+
 
     return 0;
 
