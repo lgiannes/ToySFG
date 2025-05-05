@@ -18,7 +18,7 @@ void graph_reso(string inputfile="Reso_hits_sigmaOffsets.txt"){
   }
 
 
-  TF1* sqrtfunction = new TF1("sqrtfunction", "[1]+[0]/x", 30000, 300000);
+  TF1* sqrtfunction = new TF1("sqrtfunction", "sqrt([1]+[0]/x)", 30000, 300000);
   sqrtfunction->SetParameters(1, 1);
 
 
@@ -26,15 +26,17 @@ void graph_reso(string inputfile="Reso_hits_sigmaOffsets.txt"){
   TLegend* leg = new TLegend(0.1,0.7,0.48,0.9);
   int i=0;
   for(auto& graph : graphs_sigma_vs_nhits){
+    if(i==4) i++; // don't want yellow >:(
     graph.second->SetMarkerStyle(20);
     graph.second->SetMarkerSize(0.5);
     graph.second->SetMarkerColor(i+1);
     graph.second->SetLineColor(i+1);
-    i++;
     graph.second->Fit(sqrtfunction);
+    graph.second->GetFunction("sqrtfunction")->SetLineColor(i+1);
     mg->Add(graph.second);
     leg->AddEntry(graph.second, Form("#sigma_{offset} = %.2f ns", graph.first), "l");
     graph.second->Draw("APL");
+    i++;
   }
 
   mg->SetTitle("Resolution vs. number of hits;Number of hits;#sigma_{offset} [ns]");
