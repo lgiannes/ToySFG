@@ -2,6 +2,8 @@
 // Created by Vedantha Srinivas Kasturi on 05.05.2025.
 //
 
+#include "common_utils.h"
+
 double ComputeCrossingMatrix(std::string filename = "") {
 
     TFile *file = new
@@ -111,15 +113,7 @@ double ComputeCrossingMatrix(std::string filename = "") {
     }
     cout << "\n";
 
-    TH2D* hC = new TH2D("hC", "Normalized Matrix C;Channel i;Channel j",
-                        nChannels, 0, nChannels,
-                        nChannels, 0, nChannels);
 
-    for (int i = 0; i < nChannels; ++i) {
-        for (int j = 0; j < nChannels; ++j) {
-            hC->SetBinContent(i + 1, j + 1, C[i][j]);  // Bin numbers start at 1
-        }
-    }
 
 
 
@@ -332,11 +326,9 @@ double ComputeCrossingMatrix(std::string filename = "") {
          << endl;
     cout << " Convergence rate: " << abs(eigenvalues_corrected[1]) << " (second largest eigenvalue)" << endl;
 
-    hC->SetStats(0);
-//    hC->SetMinimum(0);
-//    hC->SetMaximum(0.07);
-    hC->Draw("COLZ");
 
+    // Draw the matrix
+    common_utils::draw_matrix(C, nChannels, "Crossing matrix");
 
     return 0;
 
