@@ -234,8 +234,8 @@ double TimeOffsetCalibTof(std::string filename = "", bool saveImage = true, bool
     }
 
     TH1F* h_offset_difference = new TH1F("h_offset_difference", "Difference between input and output offsets; #Delta T^{0}_{set} - #Delta T^{0}_{comp}  [ns]", 5000, -1, 1);
-    TH1F* h_inputOffsets = new TH1F("h_inputOffsets", "Input offsets; #Delta T^{0} [ns]", 25, -3, 3);
-    TH1F* h_outputOffsets = new TH1F("h_outputOffsets", "Output offsets; #Delta T^{0} [ns]", 25, -3, 3);
+    TH1F* h_inputOffsets = new TH1F("h_inputOffsets", "Input offsets; #Delta T^{0} [ns]", 50, -3, 3);
+    TH1F* h_outputOffsets = new TH1F("h_outputOffsets", "Output offsets; #Delta T^{0} [ns]", 50, -3, 3);
     TGraph* g_inputOffsets = new TGraph();
     TGraph* g_outputOffsets = new TGraph();
     TGraph* g_residuals = new TGraph();
@@ -251,8 +251,8 @@ double TimeOffsetCalibTof(std::string filename = "", bool saveImage = true, bool
         g_residuals->SetPoint(g_residuals->GetN(), ch_entries[channel], 1000*(lookUpTable[channel] - inputTimeOffsets[channel]) );
     }
 
-    TH1D* h_deltaBeforeCalib = new TH1D("h_deltaBeforeCalib", "Delta before calibration", 420, -10, 10);
-    TH1D* h_deltaAfterCalib = new TH1D("h_deltaAfterCalib", "Delta after calibration", 420, -10, 10);
+    TH1D* h_deltaBeforeCalib = new TH1D("h_deltaBeforeCalib", "Delta before calibration", 420, -5, 5);
+    TH1D* h_deltaAfterCalib = new TH1D("h_deltaAfterCalib", "Delta after calibration", 420, -5, 5);
     for (int hit_i = 0; hit_i<nEntries; hit_i++) {
         tree->GetEntry(hit_i);
         double delta = time2 - time1 - (distance) / speedOfLight;
@@ -264,8 +264,11 @@ double TimeOffsetCalibTof(std::string filename = "", bool saveImage = true, bool
     TCanvas* c_offDiff = new TCanvas("c_offDiff", "c_offDiff", 1800, 600);
     c_offDiff->Divide(2,1);
     c_offDiff->cd(1);
+    h_offset_difference->SetStats(0);
+
     h_offset_difference->Draw();
     h_offset_difference->Fit("gaus","Q");
+
 //  double sigma_offset = h_offset_difference->GetFunction("gaus")->GetParameter(2);
     double sigma_offset = h_offset_difference->GetRMS();
     cout << "Mean of Offset_{measured} - Offset_{set} = " <<1000*h_offset_difference->GetMean() << " ps." << endl;
@@ -273,12 +276,18 @@ double TimeOffsetCalibTof(std::string filename = "", bool saveImage = true, bool
 //  ofs.open("Reso_hits_sigmaOffsets.txt", std::ofstream::out | std::ofstream::app);
 //  ofs << timeResolution << " " << nEntries << " " << sigma_offset << endl;
     c_offDiff->cd(2);
+
+    h_deltaAfterCalib->SetStats(0);
+    h_deltaBeforeCalib->SetStats(0);
+
     h_deltaAfterCalib->SetLineColor(kBlue);
     h_deltaAfterCalib->Draw();
     h_deltaAfterCalib->Fit("gaus","Q");
     h_deltaBeforeCalib->SetLineColor(kRed);
     h_deltaBeforeCalib->Draw("same");
     h_deltaBeforeCalib->Fit("gaus","Q");
+
+    // Dont show the stat box
     double sigma_before = h_deltaBeforeCalib->GetFunction("gaus")->GetParameter(2);
     double sigma_after = h_deltaAfterCalib->GetFunction("gaus")->GetParameter(2);
     TLatex latex;
@@ -340,6 +349,9 @@ double TimeOffsetCalibTof(std::string filename = "", bool saveImage = true, bool
     g_offset_correction_ratio->SetTitle("Offset correction ratio;iteration;Offset correction ratio");
     g_offset_correction_ratio->Draw("APL");
 
+    // remove the stat box
+//    gStyle->SetOptStat(0);
+
     if (saveImage)
         c_offset->SaveAs(Form("TimeOffsetCalibEvolution_%s.png", reducedFilename.c_str()));
 
@@ -349,7 +361,9 @@ double TimeOffsetCalibTof(std::string filename = "", bool saveImage = true, bool
     h_inputOffsets->SetLineColor(kRed);
     h_inputOffsets->SetLineStyle(2);
     h_inputOffsets->SetLineWidth(4);
+    h_inputOffsets->SetStats(0);
     h_outputOffsets->SetLineColor(kBlue);
+    h_outputOffsets->SetStats(0);
     h_inputOffsets->Draw();
     h_outputOffsets->Draw("same");
     TLegend *inputputputleg = new TLegend(0.1,0.7,0.48,0.9);
@@ -373,6 +387,9 @@ double TimeOffsetCalibTof(std::string filename = "", bool saveImage = true, bool
     g_residuals->SetMarkerColor(kBlack);
     g_residuals->SetTitle("Residuals;Channel;Offset_{output} - Offset_{input} [ps]");
     g_residuals->Draw("APL");
+
+    // Remove the stat box
+//    gstyle->SetOptStat(0);
 
     if(saveImage)
         c_offsetHist->SaveAs(Form("TimeOffsetCalibInputOutput_%s.png", reducedFilename.c_str()));
@@ -430,6 +447,9 @@ double TimeOffsetCalibTof(std::string filename = "", bool saveImage = true, bool
     g_magnitudeDeltaTk_ratio->SetLineColor(kMagenta);
     g_magnitudeDeltaTk_ratio->Draw("APL");
     g_magnitudeDeltaTk_ratio->SetTitle("|#Delta T^{k}|/|#Delta T^{k-1}|; k; |#Delta T^{k}|/|#Delta T^{k-1}|");
+
+    // remove the stat box
+//    gStyle->SetOptStat(0);
 
     if(saveImage)
         c_delta12->SaveAs(Form("TimeOffsetCalibDelta12_%s.png", reducedFilename.c_str()));
