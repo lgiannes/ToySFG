@@ -142,9 +142,9 @@ void FakeSFG::setTimeOffsets(std::string offset_type) {
   } else if(offset_type == "gaussian") {
     setGaussianTimeOffsets(1);
   } else if(offset_type == "sawtooth") {
-    setSawToothTimeOffsets(1);
+    setSawToothTimeOffsets(1.5);
   } else if(offset_type == "alternating") {
-    setAlternatingTimeOffsets(1, 1);
+    setAlternatingTimeOffsets(2, 1);
   } else {
     std::cerr<<"Error: Time offset type not recognized. Choose between random, gaussian, sawtooth, alternating"<<std::endl;
   }
