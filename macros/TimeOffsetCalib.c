@@ -1,6 +1,6 @@
 
 
-double TimeOffsetCalib(std::string filename = "../output/uniform/toySFG_600ch_Reso250.root", bool saveImage = true, bool batchMode = false, int maxEntries = -1) {
+double TimeOffsetCalib(std::string filename = "../output/alternating/toySFG_600ch_Reso250.root", bool saveImage = true, bool batchMode = false, int maxEntries = 50000) {
   if (batchMode) {
     gROOT->SetBatch(kTRUE);
   }
@@ -224,13 +224,15 @@ double TimeOffsetCalib(std::string filename = "../output/uniform/toySFG_600ch_Re
     cout<<endl;
   }
 
-  TH1F* h_offset_difference = new TH1F("h_offset_difference", "Difference between input and output offsets; T^{(0)}_{set} - T^{(0)}_{comp}  [ns]", 500, -0.2, 0.2);
+  TH1F* h_offset_difference = new TH1F("h_offset_difference", "Difference between input and output offsets; T^{(0)}_{set} - T^{(0)}_{found}  [ns]", 500, -0.2, 0.2);
   h_offset_difference->GetXaxis()->SetTitleSize(0.04);
   h_offset_difference->GetYaxis()->SetTitle("Number of channels");
   h_offset_difference->SetStats(0);
-  TH1F* h_inputOffsets = new TH1F("h_inputOffsets", "Input offsets; #Delta T^{0} [ns]", 50, -7, 7);
+  TH1F* h_inputOffsets = new TH1F("h_inputOffsets", "Input offsets; T^{0} [ns]; Number of channels", 50, -7, 7);
+  h_inputOffsets->GetXaxis()->SetTitleSize(0.04);
   h_inputOffsets->SetStats(0);
-  TH1F* h_outputOffsets = new TH1F("h_outputOffsets", "Output offsets; #Delta T^{0} [ns]", 50, -7, 7);
+  TH1F* h_outputOffsets = new TH1F("h_outputOffsets", "Output offsets; T^{0} [ns]; Number of channels", 50, -7, 7);
+  h_outputOffsets->GetXaxis()->SetTitleSize(0.04);
   h_outputOffsets->SetStats(0);
   TGraph* g_inputOffsets = new TGraph();
   TGraph* g_outputOffsets = new TGraph();
@@ -278,6 +280,7 @@ double TimeOffsetCalib(std::string filename = "../output/uniform/toySFG_600ch_Re
 //  ofs.open("Reso_hits_sigmaOffsets.txt", std::ofstream::out | std::ofstream::app);
 //  ofs << timeResolution << " " << nEntries << " " << sigma_offset << endl;
   c_offDiff->cd(2);
+  gPad->SetLeftMargin(0.15);
   h_deltaAfterCalib->SetLineColor(kBlue);
   h_deltaAfterCalib->Draw();
   h_deltaAfterCalib->Fit("gaus","Q");
@@ -292,6 +295,8 @@ double TimeOffsetCalib(std::string filename = "../output/uniform/toySFG_600ch_Re
   h_deltaBeforeCalib->GetFunction("gaus")->SetLineWidth(1);
   h_deltaBeforeCalib->GetFunction("gaus")->Draw("same");
   h_deltaBeforeCalib->SetStats(0);
+  h_deltaBeforeCalib->SetTitle("#Delta distribution before and after calibration");
+  h_deltaAfterCalib->SetTitle("#Delta distribution before and after calibration");
   //
   h_deltaBeforeCalib->GetXaxis()->SetTitle("#Delta [ns]");
   h_deltaBeforeCalib->GetXaxis()->SetTitleSize(0.04);
@@ -314,12 +319,20 @@ double TimeOffsetCalib(std::string filename = "../output/uniform/toySFG_600ch_Re
   leg->AddEntry(h_deltaAfterCalib, "After calibration", "l");
   leg->Draw();
   string reducedFilename = filename.substr(filename.find_last_of("/")+1);
-  h_deltaAfterCalib->SetTitle(reducedFilename.c_str());
-  h_deltaBeforeCalib->SetTitle(reducedFilename.c_str());
+//  h_deltaAfterCalib->SetTitle(reducedFilename.c_str());
+//  h_deltaBeforeCalib->SetTitle(reducedFilename.c_str());
 
-  if (saveImage)
+  if (saveImage) {
     c_offDiff->SaveAs(Form("TimeOffsetCalib_%s.png", reducedFilename.c_str()));
-
+    TCanvas *c_onlyOffDiff = new TCanvas("c_onlyOffDiff", "c_onlyOffDiff", 800, 600);
+    c_onlyOffDiff->cd();
+    h_offset_difference->Draw();
+    l_mHits.DrawLatex(0.2, 0.85, Form("Matching hits: %d", nEntries));
+    l_mean.DrawLatex(0.2, 0.81, Form("Mean = %.2f ps", 1000*h_offset_difference->GetMean()));
+    l_sigma.DrawLatex(0.2, 0.77, Form("#sigma = %.2f ps", 1000*h_offset_difference->GetRMS()));
+    c_onlyOffDiff->SaveAs(Form("TimeOffsetCalib_%s_%d_offsetDifference.png", reducedFilename.c_str(),nEntries));
+    c_onlyOffDiff->SaveAs(Form("TimeOffsetCalib_%s_%d_offsetDifference.pdf", reducedFilename.c_str(),nEntries));
+  }
   TCanvas* c_offset = new TCanvas("c_offset", "c_offset", 1600, 600);
   c_offset->Divide(2,1);
   c_offset->cd(1);
