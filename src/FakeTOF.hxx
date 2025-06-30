@@ -24,7 +24,7 @@ private:
     double barLength = 200; // cm
     double barSeparation = 37.5; // cm
 
-    int barsPerPanel = 5; // Number of bars per panel
+    int barsPerPanel = 10; // Number of bars per panel
 
     double TopBar0[3] = {0, 100, -75}; // From upstream to downstream
     double BottomBar0[3] = {0, -100, -75}; // From upstream to downstream

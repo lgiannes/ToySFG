@@ -18,6 +18,7 @@ namespace common_utils{
       hC->SetStats(0);
       hC->Draw("COLZ");
       hC->SetTitle(title.c_str());
+      gPad->SetRightMargin(0.15);
 
       return;
     }

@@ -4,7 +4,7 @@
 
 #include "common_utils.h"
 
-double ComputeCrossingMatrix(std::string filename = "") {
+double ComputeCrossingMatrix(std::string filename = "", std::string title="") {
 
     TFile *file = new
     TFile(filename.c_str(), "READ");
@@ -328,7 +328,7 @@ double ComputeCrossingMatrix(std::string filename = "") {
 
 
     // Draw the matrix
-    common_utils::draw_matrix(C, nChannels, "Crossing matrix");
+    common_utils::draw_matrix(C, nChannels, title.c_str());
 
     return 0;
 
