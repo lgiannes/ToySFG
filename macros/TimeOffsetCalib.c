@@ -1,6 +1,6 @@
 
 
-double TimeOffsetCalib(std::string filename = "../output/alternating/toySFG_600ch_Reso250.root", bool saveImage = true, bool batchMode = false, int maxEntries = 50000) {
+double TimeOffsetCalib(std::string filename = "../output/uniform/toySFG_600ch_Reso250.root", bool saveImage = true, bool batchMode = false, int maxEntries = 50000) {
   if (batchMode) {
     gROOT->SetBatch(kTRUE);
   }
