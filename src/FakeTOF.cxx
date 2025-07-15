@@ -16,7 +16,8 @@ std::string getPanelName(int id) {
 }
 
 
-FakeTOF::FakeTOF(std::string offset_type, double timeReso) : intrinsicTimeResolution(timeReso) {
+FakeTOF::FakeTOF(std::string offset_type, double timeReso, int Nbars) : intrinsicTimeResolution(timeReso),
+                                                                      barsPerPanel(Nbars) {
 
     // Initialize the bars by fixing their centers
     std::vector<double> pos;
@@ -131,6 +132,7 @@ void FakeTOF::setTimeOffsets(std::string offset_type) {
         setAlternatingTimeOffsets(1, 1);
     } else {
         std::cerr << "Error: Time offset type not recognized. Choose between random, gaussian, sawtooth, alternating" << std::endl;
+
     }
 
     // Push back the average to zero (we impose that the average of the offsets is 0)

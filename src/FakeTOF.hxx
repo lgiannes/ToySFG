@@ -24,7 +24,7 @@ private:
     double barLength = 200; // cm
     double barSeparation = 37.5; // cm
 
-    int barsPerPanel = 10; // Number of bars per panel
+    int barsPerPanel; // Number of bars per panel
 
     double TopBar0[3] = {0, 100, -75}; // From upstream to downstream
     double BottomBar0[3] = {0, -100, -75}; // From upstream to downstream
@@ -111,7 +111,7 @@ private:
 
 
 public:
-    FakeTOF(std::string offset_type, double timeReso); // Initialise the ToF detector
+    FakeTOF(std::string offset_type, double timeReso, int Nbars); // Initialise the ToF detector
     ~FakeTOF() = default;
 
     FakeTOF::matchingHitsPair simulateTimeHit(); // Simulate a time hit

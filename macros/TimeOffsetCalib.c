@@ -1,6 +1,6 @@
 
 
-double TimeOffsetCalib(std::string filename = "../output/uniform/toySFG_600ch_Reso250.root", bool saveImage = true, bool batchMode = false, int maxEntries = 50000) {
+double TimeOffsetCalib(std::string filename = "../output/alternating/toySFG_600ch_Reso0.root", bool saveImage = true, bool batchMode = false, int maxEntries = 50000) {
   if (batchMode) {
     gROOT->SetBatch(kTRUE);
   }
@@ -229,10 +229,14 @@ double TimeOffsetCalib(std::string filename = "../output/uniform/toySFG_600ch_Re
   h_offset_difference->GetYaxis()->SetTitle("Number of channels");
   h_offset_difference->SetStats(0);
   TH1F* h_inputOffsets = new TH1F("h_inputOffsets", "Input offsets; T^{0} [ns]; Number of channels", 50, -7, 7);
-  h_inputOffsets->GetXaxis()->SetTitleSize(0.04);
+  h_inputOffsets->GetXaxis()->SetTitleSize(0.05);
+  h_inputOffsets->GetYaxis()->SetTitleSize(0.05);
+
   h_inputOffsets->SetStats(0);
   TH1F* h_outputOffsets = new TH1F("h_outputOffsets", "Output offsets; T^{0} [ns]; Number of channels", 50, -7, 7);
-  h_outputOffsets->GetXaxis()->SetTitleSize(0.04);
+  h_outputOffsets->GetXaxis()->SetTitleSize(0.05);
+  h_outputOffsets->GetYaxis()->SetTitleSize(0.05);
+
   h_outputOffsets->SetStats(0);
   TGraph* g_inputOffsets = new TGraph();
   TGraph* g_outputOffsets = new TGraph();
